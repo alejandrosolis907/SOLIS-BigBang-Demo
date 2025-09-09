@@ -3,6 +3,7 @@ const express = require('express');
 const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
+const { execSync } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +13,15 @@ app.use(express.json());
 
 const distPath = path.join(__dirname, 'dist');
 console.log('[BOOT] distPath =', distPath);
+
+if (!fs.existsSync(path.join(distPath, 'index.html'))) {
+  console.warn('[BOOT] dist/index.html no encontrado, ejecutando "npm run build"...');
+  try {
+    execSync('npm run build', { stdio: 'inherit' });
+  } catch (err) {
+    console.error('[BOOT] build falló', err);
+  }
+}
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
