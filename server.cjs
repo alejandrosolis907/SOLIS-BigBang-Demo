@@ -15,7 +15,7 @@ const distPath = path.join(__dirname, 'dist');
 console.log('[BOOT] distPath =', distPath);
 
 if (!fs.existsSync(path.join(distPath, 'index.html'))) {
-  console.warn('[BOOT] dist/index.html no encontrado, ejecutando "npm run build"...');
+  console.warn('[BOOT] dist/index.html no encontrado, ejecutando "npm --omit=dev run build"...');
   try {
     // Railway establece varias variables `npm_config_*` (por ejemplo
     // `npm_config_production`) que provocan advertencias al ejecutar NPM.
@@ -25,7 +25,7 @@ if (!fs.existsSync(path.join(distPath, 'index.html'))) {
     for (const key of Object.keys(env)) {
       if (key.toLowerCase().startsWith('npm_config_')) delete env[key];
     }
-    execSync('npm run build', { stdio: 'inherit', env });
+    execSync('npm --omit=dev run build', { stdio: 'inherit', env });
   } catch (err) {
     console.error('[BOOT] build falló', err);
     process.exit(1);
