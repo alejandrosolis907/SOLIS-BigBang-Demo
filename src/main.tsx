@@ -1,11 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css';
 
-ReactDOM.createRoot(document.getElementById('root')!)
-  .render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
+function App() {
+  return (
+    <div style={{ textAlign: 'center', marginTop: '3rem' }}>
+      <h1>🚀 SOLIS BigBang Demo</h1>
+      <p>App corriendo con Vite + React + Express en Railway</p>
+    </div>
   );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+root.render(<App />);
