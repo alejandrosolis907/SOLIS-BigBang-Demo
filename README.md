@@ -11,19 +11,19 @@ la congruencia del modelo con los axiomas presentados en *axiomas.pdf*.
 
 ### Requisitos
 - Node.js 18+ o 20+
-- pnpm (recomendado) o npm
+- npm
 
 ### Desarrollo
 ```bash
-pnpm install
-pnpm dev
+npm install
+npm run dev
 # Abre http://localhost:5173/
 ```
 
 ### Producción (Express + Vite)
 ```bash
-pnpm build
-pnpm start
+npm run build
+npm start
 # Abre http://localhost:3000/
 ```
 
