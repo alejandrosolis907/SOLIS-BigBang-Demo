@@ -15,17 +15,16 @@ const distPath = path.join(__dirname, 'dist');
 console.log('[BOOT] distPath =', distPath);
 
 if (!fs.existsSync(path.join(distPath, 'index.html'))) {
-  console.warn('[BOOT] dist/index.html no encontrado, ejecutando "npm --omit=dev run build"...');
+  console.warn('[BOOT] dist/index.html no encontrado, ejecutando "node node_modules/vite/bin/vite.js build"...');
   try {
-    // Railway establece varias variables `npm_config_*` (por ejemplo
-    // `npm_config_production`) que provocan advertencias al ejecutar NPM.
-    // Copiamos el entorno y eliminamos cualquier variable de ese tipo para
-    // que el build se ejecute limpio y sin falsos errores en los logs.
+    // Railway inyecta variables `npm_config_*` que provocan warnings si se
+    // invoca a `npm`. Ejecutamos directamente el binario de Vite con Node y
+    // limpiamos esas variables para que el build sea silencioso.
     const env = { ...process.env };
     for (const key of Object.keys(env)) {
       if (key.toLowerCase().startsWith('npm_config_')) delete env[key];
     }
-    execSync('npm --omit=dev run build', { stdio: 'inherit', env });
+    execSync('node node_modules/vite/bin/vite.js build', { stdio: 'inherit', env });
   } catch (err) {
     console.error('[BOOT] build falló', err);
     process.exit(1);

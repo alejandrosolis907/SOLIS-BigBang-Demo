@@ -35,10 +35,9 @@ pnpm start
 2. En Railway, selecciona **New Project → Deploy from GitHub**.
 3. Railway detectará automáticamente el entorno Node 18 + Vite + Express y ejecutará:
    - `npm install`
-   - `npm start`
+   - `node server.cjs`
 
-   Si la carpeta `dist/` no existe al iniciar, el servidor ejecutará `npm run build` para generarla.
-   El entorno de despliegue desactiva `NPM_CONFIG_PRODUCTION` para evitar el aviso `npm warn config production`.
+   Si la carpeta `dist/` no existe al iniciar, el servidor ejecutará `node node_modules/vite/bin/vite.js build` para generarla y evitar advertencias de npm.
 
 ---
 
@@ -49,7 +48,7 @@ pnpm start
 ├─ LICENSE                        # Apache-2.0 para el código
 ├─ NOTICE                         # Aviso de autoría y licencias
 ├─ README.md                      # Este documento unificado
-├─ server.js                      # Servidor Express
+├─ server.cjs                     # Servidor Express
 ├─ package.json                   # Scripts y dependencias
 ├─ src/                           # Código fuente UI (React + Vite)
 ├─ public/                        # Recursos estáticos
@@ -62,7 +61,7 @@ pnpm start
 
 ## 📜 Licencias
 
-- **Código (src/, public/, server.js, etc.)**: Apache-2.0 (ver `LICENSE`).
+- **Código (src/, public/, server.cjs, etc.)**: Apache-2.0 (ver `LICENSE`).
 - **Documento axiomas.pdf (docs/axiomas.pdf)**: CC BY-NC-ND 4.0 (ver `docs/LICENSE-docs-CC-BY-NC-ND-4.0.md`).
 
 ---
@@ -112,7 +111,7 @@ Cambios en **seed/grid/preset/velocidad** se aplican **en tiempo real** a todas 
 ## Archivo
 - `src/engine.js`: implementación de axiomas en clave computacional.
 - `src/main.js`: UI + control global + bucle de animación.
-- `server.js`: servidor estático sin dependencias (Node puro).
+- `server.cjs`: servidor estático sin dependencias (Node puro).
 
 ## Licencia
 Este motor/plantilla es original para tu proyecto. Sustituye aquí la licencia que prefieras (p.ej., Apache-2.0 para el **código**) y mantén CC BY‑NC‑ND 4.0 para tu **obra teórica** si así lo deseas.
