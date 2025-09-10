@@ -19,12 +19,13 @@ if (!fs.existsSync(path.join(distPath, 'index.html'))) {
   try {
     // En Railway NPM instala sólo dependencias de producción. Si la
     // variable NPM_CONFIG_PRODUCTION está definida, `npm run build`
-    // muestra una advertencia. Ejecutamos el comando con esa variable
-    // vacía para evitar ruido en los logs y salimos con error si falla.
-    execSync('npm run build', {
-      stdio: 'inherit',
-      env: { ...process.env, NPM_CONFIG_PRODUCTION: '' }
-    });
+    // imprime una advertencia en stderr y Railway la registra como error.
+    // Clonamos el entorno y eliminamos esa variable para que la salida
+    // quede limpia y fallamos explícitamente si el build no se genera.
+    const env = { ...process.env };
+    delete env.NPM_CONFIG_PRODUCTION;
+    delete env.npm_config_production;
+    execSync('npm run build', { stdio: 'inherit', env });
   } catch (err) {
     console.error('[BOOT] build falló', err);
     process.exit(1);
