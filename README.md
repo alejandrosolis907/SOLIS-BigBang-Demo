@@ -36,8 +36,9 @@ pnpm start
 3. Railway detectará automáticamente el entorno Node 18 + Vite + Express y ejecutará:
    - `npm install`
    - `npm start`
-   
+
    Si la carpeta `dist/` no existe al iniciar, el servidor ejecutará `npm run build` para generarla.
+   El entorno de despliegue desactiva `NPM_CONFIG_PRODUCTION` para evitar el aviso `npm warn config production`.
 
 ---
 
