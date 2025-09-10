@@ -3,14 +3,14 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
-  root: '.',          // raíz del proyecto
+  root: '.',
   base: '/',
   plugins: [react()],
   publicDir: 'público',
   build: {
     outDir: 'dist',
     rollupOptions: {
-      input: path.resolve(__dirname, 'index.html')
-    }
-  }
+      input: path.resolve(process.cwd(), 'index.html'),
+    },
+  },
 });
