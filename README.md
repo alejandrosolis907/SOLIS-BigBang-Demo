@@ -33,10 +33,11 @@ pnpm start
 
 1. Sube este repositorio a GitHub.
 2. En Railway, selecciona **New Project → Deploy from GitHub**.
-3. Railway detectará automáticamente el entorno Node + Vite + Express y ejecutará:
-   - `pnpm install`
-   - `pnpm run build` (gracias al script `postinstall`)
-   - `pnpm start`
+3. Railway detectará automáticamente el entorno Node 18 + Vite + Express y ejecutará:
+   - `npm install`
+   - `npm start`
+   
+   Si la carpeta `dist/` no existe al iniciar, el servidor ejecutará `npm run build` para generarla.
 
 ---
 
