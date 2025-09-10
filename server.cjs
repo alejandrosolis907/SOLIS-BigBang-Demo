@@ -17,14 +17,14 @@ console.log('[BOOT] distPath =', distPath);
 if (!fs.existsSync(path.join(distPath, 'index.html'))) {
   console.warn('[BOOT] dist/index.html no encontrado, ejecutando "npm run build"...');
   try {
-    // En Railway NPM instala sólo dependencias de producción. Si la
-    // variable NPM_CONFIG_PRODUCTION está definida, `npm run build`
-    // imprime una advertencia en stderr y Railway la registra como error.
-    // Clonamos el entorno y eliminamos esa variable para que la salida
-    // quede limpia y fallamos explícitamente si el build no se genera.
+    // Railway establece varias variables `npm_config_*` (por ejemplo
+    // `npm_config_production`) que provocan advertencias al ejecutar NPM.
+    // Copiamos el entorno y eliminamos cualquier variable de ese tipo para
+    // que el build se ejecute limpio y sin falsos errores en los logs.
     const env = { ...process.env };
-    delete env.NPM_CONFIG_PRODUCTION;
-    delete env.npm_config_production;
+    for (const key of Object.keys(env)) {
+      if (key.toLowerCase().startsWith('npm_config_')) delete env[key];
+    }
     execSync('npm run build', { stdio: 'inherit', env });
   } catch (err) {
     console.error('[BOOT] build falló', err);
