@@ -11,19 +11,19 @@ la congruencia del modelo con los axiomas presentados en *axiomas.pdf*.
 
 ### Requisitos
 - Node.js 18+ o 20+
-- pnpm (recomendado) o npm
+- npm
 
 ### Desarrollo
 ```bash
-pnpm install
-pnpm dev
+npm install
+npm run dev
 # Abre http://localhost:5173/
 ```
 
 ### Producción (Express + Vite)
 ```bash
-pnpm build
-pnpm start
+npm run build
+npm start
 # Abre http://localhost:3000/
 ```
 
@@ -33,10 +33,11 @@ pnpm start
 
 1. Sube este repositorio a GitHub.
 2. En Railway, selecciona **New Project → Deploy from GitHub**.
-3. Railway detectará automáticamente el entorno Node + Vite + Express y ejecutará:
-   - `pnpm install`
-   - `pnpm run build` (gracias al script `postinstall`)
-   - `pnpm start`
+3. Railway detectará automáticamente el entorno Node 18 + Vite + Express y ejecutará:
+   - `npm install`
+   - `node server.mjs`
+
+   Si la carpeta `dist/` no existe al iniciar, el servidor responderá con el contenido compilado.
 
 ---
 
@@ -47,7 +48,7 @@ pnpm start
 ├─ LICENSE                        # Apache-2.0 para el código
 ├─ NOTICE                         # Aviso de autoría y licencias
 ├─ README.md                      # Este documento unificado
-├─ server.js                      # Servidor Express
+├─ server.mjs                     # Servidor Express
 ├─ package.json                   # Scripts y dependencias
 ├─ src/                           # Código fuente UI (React + Vite)
 ├─ public/                        # Recursos estáticos
@@ -60,7 +61,7 @@ pnpm start
 
 ## 📜 Licencias
 
-- **Código (src/, public/, server.js, etc.)**: Apache-2.0 (ver `LICENSE`).
+- **Código (src/, public/, server.mjs, etc.)**: Apache-2.0 (ver `LICENSE`).
 - **Documento axiomas.pdf (docs/axiomas.pdf)**: CC BY-NC-ND 4.0 (ver `docs/LICENSE-docs-CC-BY-NC-ND-4.0.md`).
 
 ---
@@ -110,7 +111,7 @@ Cambios en **seed/grid/preset/velocidad** se aplican **en tiempo real** a todas 
 ## Archivo
 - `src/engine.js`: implementación de axiomas en clave computacional.
 - `src/main.js`: UI + control global + bucle de animación.
-- `server.js`: servidor estático sin dependencias (Node puro).
+- `server.mjs`: servidor estático sin dependencias (Node puro).
 
 ## Licencia
 Este motor/plantilla es original para tu proyecto. Sustituye aquí la licencia que prefieras (p.ej., Apache-2.0 para el **código**) y mantén CC BY‑NC‑ND 4.0 para tu **obra teórica** si así lo deseas.
