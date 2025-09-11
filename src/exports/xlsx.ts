@@ -9,18 +9,32 @@ type Series = Array<{
   Tau: number;
 }>;
 
+function isBrowser() {
+  return typeof window !== "undefined" && typeof document !== "undefined";
+}
+
 export async function exportExcel(
   data: { series: Series; meta: Record<string, any> },
-  outPath: string
-) {
+  outPath?: string
+): Promise<Blob | void> {
   let XLSX: any;
-  try { XLSX = require("xlsx"); }
-  catch {
-    console.warn("[xlsx] Paquete 'xlsx' no instalado. Export omitido.");
-    return;
+  if (isBrowser()) {
+    try {
+      XLSX = await new Function("m", "return import(m)")("xlsx");
+    } catch {
+      console.warn("[xlsx] paquete no disponible; export omitido.");
+      return;
+    }
+  } else {
+    try {
+      XLSX = require("xlsx");
+    } catch {
+      console.warn("[xlsx] paquete no disponible; export omitido.");
+      return;
+    }
   }
-  const toSheet = (rows: any[]) => XLSX.utils.json_to_sheet(rows);
 
+  const toSheet = (rows: any[]) => XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   const R_series = data.series.map(s => ({ t: s.t, R0: Number((s.R as any)[0] ?? 0), Tau: s.Tau }));
   const Lx_params = data.series.map(s => ({ t: s.t, ...s.Lx }));
@@ -34,5 +48,13 @@ export async function exportExcel(
   XLSX.utils.book_append_sheet(wb, toSheet(Res_events),"Res_events");
   XLSX.utils.book_append_sheet(wb, toSheet(Meta),      "Meta");
 
-  XLSX.writeFile(wb, outPath);
+  if (isBrowser()) {
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    return new Blob([wbout], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+  } else {
+    if (outPath) XLSX.writeFile(wb, outPath);
+    return;
+  }
 }
