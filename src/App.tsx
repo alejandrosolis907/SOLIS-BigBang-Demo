@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { exportGridPng } from "./utils/capture"; // ya existe en tu repo
 import { exportExcel } from "./utils/exportExcel";
 import { ResonanceMeter } from "./components/ResonanceMeter";
+import { TimelineChart } from "./components/TimelineChart";
 import { SensitivityPanel } from "./components/SensitivityPanel";
 import { EventLog } from "./components/EventLog";
 import { cosineSim01, normalizeInPlace } from "./lib/resonance";
@@ -22,7 +23,8 @@ type Possibility = { id:string; features:number[]; energy:number };
 const N = 64;          // cantidad de posibilidades (Φ)
 const D = 3;           // dimensión de 𝓛(x) y features
 const TICK_MS = 120;   // paso temporal 𝓣
-const PALETTE = ["#7dd3fc","#a78bfa","#f0abfc","#f472b6","#60a5fa"];
+// paleta más sobria para un aspecto científico
+const PALETTE = ["#1e293b", "#334155", "#475569", "#64748b", "#94a3b8"];
 
 export default function App() {
   const [L, setL] = useState<number[]>([0.6,0.3,0.1]); // 𝓛(x)
@@ -85,6 +87,7 @@ export default function App() {
       <div className="grid md:grid-cols-3 gap-4">
         <div className="md:col-span-2 grid gap-3">
           <ResonanceMeter value={resonancia} />
+          <TimelineChart points={timeline} />
           <div className="grid grid-cols-4 gap-2" id="grid">
             {possibilities.map((p, idx) => {
               const r = cosineSim01(p.features, L);
