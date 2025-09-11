@@ -2,6 +2,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AXIOM_LABELS, MICRO_LEGENDS } from "./axioms";
 import { exportGridPng } from "./utils/capture";
+import { exportExcel } from "./exports/xlsx";
+import { ModeToggle } from "./ui/ModeToggle";
+import { SolisPanel } from "./ui/solis/Panel";
+import { telemetry } from "./solis/telemetry";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; };
@@ -98,12 +102,18 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
     if (!running) return;
     let raf = 0;
     const loop = () => {
-      setT(prev => prev + 1);
+      const nextT = t + 1;
+      setT(nextT);
+      telemetry.record({ t: nextT, R: timeline.length, Lx: {}, Phi: seed, ResScore: 0, EpsilonFlag: false, Tau: 0 });
       // probabilistic event (ε) with resonance (ℜ) flavor
       if (Math.random() < 0.06) {
         const id = poss[Math.floor(Math.random()*poss.length)].id;
         const score = Math.random();
-        setTimeline(arr => [...arr, { t: t, collapsedId: id, score }].slice(-64));
+        setTimeline(arr => {
+          const newArr = [...arr, { t: nextT, collapsedId: id, score }].slice(-64);
+          telemetry.record({ t: nextT, R: newArr.length, Lx: {}, Phi: seed, ResScore: score, EpsilonFlag: true, Tau: newArr.length - arr.length });
+          return newArr;
+        });
       }
       raf = requestAnimationFrame(loop);
     };
@@ -182,6 +192,8 @@ export default function App(){
 
   const [showAxioms, setShowAxioms] = useState(false);
   const [labelsMode, setLabelsMode] = useState<"min"|"full">("min");
+  const [mode, setMode] = useState<'BigBang' | 'SOLIS'>(() => (localStorage.getItem('ui-mode') as any) || 'BigBang');
+  useEffect(() => { localStorage.setItem('ui-mode', mode); }, [mode]);
 
   // keyboard shortcut A
   useEffect(()=>{
@@ -203,6 +215,8 @@ export default function App(){
           <button className="px-3 py-1 rounded-xl bg-indigo-700 hover:bg-indigo-600" onClick={resetAllHard}>Big Bang ♻︎</button>
           <button className={"px-3 py-1 rounded-xl "+(showAxioms?"bg-emerald-700":"bg-slate-800")} onClick={()=>setShowAxioms(s=>!s)} title="Atajo: A">ⓘ Axiomas (A)</button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={()=>exportGridPng("grid")}>Exportar captura</button>
+          {mode === 'SOLIS' && <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={exportExcel}>Export Excel</button>}
+          <ModeToggle mode={mode} onChange={setMode} />
         </div>
       </header>
 
@@ -235,6 +249,7 @@ export default function App(){
       </div>
 
       <AxiomOverlay enabled={showAxioms} />
+      {mode === 'SOLIS' && <SolisPanel />}
     </div>
   );
 }

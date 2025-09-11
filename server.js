@@ -1,0 +1,45 @@
+// server.js (Golden para Railway)
+const express = require('express');
+const compression = require('compression');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(compression());
+app.use(express.json());
+
+const distPath = path.join(__dirname, 'dist');
+console.log('[BOOT] distPath =', distPath);
+
+app.get('/healthz', (_req, res) => res.json({ ok: true }));
+
+app.get('/debug', (_req, res) => {
+  const indexPath = path.join(distPath, 'index.html');
+  const exists = fs.existsSync(indexPath);
+  let listing = [];
+  try { listing = fs.readdirSync(distPath); } catch {}
+  res.json({ distPath, indexExists: exists, listing });
+});
+
+app.use(express.static(distPath, { maxAge: '1h', etag: true }));
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) return res.status(404).end();
+  const indexFile = path.join(distPath, 'index.html');
+  if (!fs.existsSync(indexFile)) {
+    console.error('[ERROR] index.html no encontrado en:', indexFile);
+    return res.status(500).send('Build no encontrado. ¿Corrió "npm run build"?');
+  }
+  res.sendFile(indexFile);
+});
+
+app.use((err, _req, res, _next) => {
+  console.error('[UNHANDLED ERROR]', err);
+  res.status(500).send('Internal Server Error');
+});
+
+app.listen(PORT, () => {
+  console.log(`[BOOT] Servidor escuchando en puerto ${PORT}`);
+});
