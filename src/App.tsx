@@ -2,6 +2,37 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AXIOM_LABELS, MICRO_LEGENDS } from "./axioms";
 import { exportGridPng } from "./utils/capture";
+import { ModeToggle } from "./ui/ModeToggle";
+import { SolisPanels } from "./ui/solis/Panels";
+import { SolisHud } from "./ui/solis/Hud";
+import { SimulationController, setUIMode } from "./solis/api";
+import { getBuffer } from "./solis/telemetry";
+import { exportExcel } from "./exports/xlsx";
+
+const SOLIS = import.meta.env.VITE_UI_MODE_SOLIS_ENABLED === "1";
+
+async function handleExportExcel() {
+  const buf = getBuffer();
+  const blob = await exportExcel({
+    series: buf.series,
+    meta: {
+      ui_mode: "SOLIS",
+      exported_at: new Date().toISOString(),
+    },
+  });
+  if (blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `SOLIS_export_${Date.now()}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } else {
+    console.warn("[SOLIS] export se realizó por script/Node o fue omitido.");
+  }
+}
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; };
@@ -168,6 +199,13 @@ export default function App(){
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: total}, ()=> true));
   const [palette, setPalette] = useState(0);
 
+  useEffect(() => {
+    if (!SOLIS) return;
+    setUIMode("SOLIS");
+    // No iniciar/stop automáticos aquí para no interferir con tu lógica
+    // if desired: SimulationController.start(); return () => SimulationController.stop();
+  }, []);
+
   useEffect(()=>{
     // resize grid preserves first N seeds
     const n = rows*cols;
@@ -235,6 +273,22 @@ export default function App(){
       </div>
 
       <AxiomOverlay enabled={showAxioms} />
+
+      {SOLIS && <ModeToggle />}
+      {SOLIS && <SolisPanels />}
+      {SOLIS && <SolisHud />}
+
+      {SOLIS && (
+        <div style={{ position: "fixed", bottom: 12, left: 12, zIndex: 9999 }}>
+          <button
+            onClick={handleExportExcel}
+            style={{ padding: "8px 12px", borderRadius: 8 }}
+            title="Exportar Excel (SOLIS)"
+          >
+            Exportar Excel (SOLIS)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
