@@ -1,20 +1,11 @@
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AXIOM_LABELS, MICRO_LEGENDS } from "./axioms";
 import { exportGridPng } from "./utils/capture";
+import { LinePlot } from "./components/LinePlot";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; };
-type EventEpsilon = { t: number; collapsedId: string; score: number; };
-
-// ======= Color palettes (from BigBang1 feel + multiverso variants) =======
-const PALETTES: string[][] = [
-  ["#7dd3fc","#a78bfa","#f0abfc","#f472b6","#60a5fa"], // aurora cool
-  ["#fef08a","#fca5a5","#fdba74","#f97316","#fde68a"], // warm sunrise
-  ["#34d399","#22d3ee","#38bdf8","#a7f3d0","#f5d0fe"], // bio-neon
-  ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6"], // bold spectrum
-];
-
 function mulberry32(a: number) {
   return function () {
     let t = (a += 0x6d2b79f5);
@@ -33,87 +24,30 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
   return arr;
 }
 
-// ======= The visual canvas (keeps BigBang2 layout but enhances style) =======
-function PhiCanvas({ possibilities, timeline, t, paletteIndex }:{ possibilities: Possibility[]; timeline: EventEpsilon[]; t: number; paletteIndex: number }) {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const cvs = ref.current!;
-    const ctx = cvs.getContext("2d")!;
-    const W = (cvs.width = cvs.clientWidth);
-    const H = (cvs.height = cvs.clientHeight);
-
-    // background gradient (BigBang1 feel)
-    const grad = ctx.createLinearGradient(0,0,W,H);
-    const pal = PALETTES[paletteIndex % PALETTES.length];
-    pal.forEach((c, i) => grad.addColorStop(i/(pal.length-1), c));
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,W,H);
-
-    // particles (Φ possibilities) with resonance glow (multiverso feel)
-    for (let i = 0; i < possibilities.length; i++) {
-      const p = possibilities[i];
-      const x = ((i * 9973) % W) * 0.03 + (p.symmetry * W) % W;
-      const y = ((i * 7919) % H) * 0.04 + ((p.energy + 0.12 * Math.sin(t*0.03+i)) * H) % H;
-      const r = 2 + 3 * Math.abs(p.curvature);
-      const hue = Math.floor(360 * (p.energy * 0.6 + p.symmetry * 0.4));
-      ctx.beginPath();
-      ctx.fillStyle = `hsla(${hue}, 90%, 60%, 0.85)`;
-      ctx.shadowColor = `hsla(${hue}, 100%, 70%, 0.9)`;
-      ctx.shadowBlur = 12;
-      ctx.arc(x % W, y % H, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // timeline pulses (ε events)
-    ctx.shadowBlur = 0;
-    for (const e of timeline.slice(-8)) {
-      const phase = (t - e.t) * 0.05;
-      const alpha = Math.max(0, 0.6 - phase * 0.08);
-      if (alpha <= 0) continue;
-      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-      ctx.lineWidth = 1 + 2 * (1 - alpha);
-      const cx = (e.score * 997) % W;
-      const cy = (e.score * 661) % H;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 12 + phase*12, 0, Math.PI*2);
-      ctx.stroke();
-    }
-  }, [possibilities, timeline, t, paletteIndex]);
-
-  return <canvas ref={ref} className="w-full rounded-xl" style={{ height: 280 }} />;
-}
-
-// ======= One universe cell =======
-function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, paletteIndex }:{
-  seed: number; running: boolean; onToggle: () => void; onResetSoft: () => void; onResetHard: () => void; paletteIndex: number;
+// ======= One universe cell with line plot =======
+function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard }:{
+  seed: number; running: boolean; onToggle: () => void; onResetSoft: () => void; onResetHard: () => void;
 }){
-  const [t, setT] = useState(0);
   const [poss, setPoss] = useState(seededPossibilities(seed, 36));
-  const [timeline, setTimeline] = useState<EventEpsilon[]>([]);
+  const [history, setHistory] = useState<number[]>([]);
 
-  useEffect(() => { setPoss(seededPossibilities(seed, 36)); setTimeline([]); setT(0); }, [seed]);
+  useEffect(() => { setPoss(seededPossibilities(seed, 36)); setHistory([]); }, [seed]);
 
   useEffect(() => {
     if (!running) return;
     let raf = 0;
     const loop = () => {
-      setT(prev => prev + 1);
-      // probabilistic event (ε) with resonance (ℜ) flavor
-      if (Math.random() < 0.06) {
-        const id = poss[Math.floor(Math.random()*poss.length)].id;
-        const score = Math.random();
-        setTimeline(arr => [...arr, { t: t, collapsedId: id, score }].slice(-64));
-      }
+      const avg = poss.reduce((a,p)=>a+p.energy,0)/poss.length;
+      setHistory(arr => [...arr.slice(-99), avg]);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, poss, t]);
+  }, [running, poss]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
-      <PhiCanvas possibilities={poss} timeline={timeline} t={t} paletteIndex={paletteIndex} />
+      <LinePlot data={history} />
       <div className="mt-2 flex items-center gap-2 text-xs opacity-80">
         <button className={"px-2 py-1 rounded-md "+(running?"bg-slate-800":"bg-indigo-700") } onClick={onToggle}>{running? "Pausar 𝓣":"Iniciar 𝓣"}</button>
         <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetSoft}>Reset 𝓣/R</button>
@@ -166,7 +100,6 @@ export default function App(){
   const total = rows*cols;
   const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: total}, (_,i)=> 42 + i*7));
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: total}, ()=> true));
-  const [palette, setPalette] = useState(0);
 
   useEffect(()=>{
     // resize grid preserves first N seeds
@@ -181,7 +114,6 @@ export default function App(){
   const resetAllHard = () => setSeeds(prev => prev.map((_,i)=> Math.floor(Math.random()*100000)));
 
   const [showAxioms, setShowAxioms] = useState(false);
-  const [labelsMode, setLabelsMode] = useState<"min"|"full">("min");
 
   // keyboard shortcut A
   useEffect(()=>{
@@ -214,10 +146,7 @@ export default function App(){
         <select value={cols} onChange={e=>setCols(parseInt(e.target.value))} className="bg-slate-900 rounded-md px-2 py-1">
           {[1,2,3,4].map(n=><option key={n} value={n}>{n} cols</option>)}
         </select>
-        <span className="ml-4">Paleta:</span>
-        <select value={palette} onChange={e=>setPalette(parseInt(e.target.value))} className="bg-slate-900 rounded-md px-2 py-1">
-          {PALETTES.map((_,i)=><option key={i} value={i}>#{i+1}</option>)}
-        </select>
+        {/* Paleta eliminada para una interfaz más científica */}
       </div>
 
       <div id="grid" className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
@@ -229,7 +158,6 @@ export default function App(){
             onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
             onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
             onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
-            paletteIndex={(palette + i) % PALETTES.length}
           />
         ))}
       </div>
