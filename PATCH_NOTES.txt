@@ -1,0 +1,42 @@
+BigBang_Final — Parche HUD SOLIS + Export Excel
+===============================================
+
+Qué incluye este ZIP:
+- src/App.tsx (reemplazo): integra HUD SOLIS, conserva export PNG y agrega export a Excel.
+- src/components/SensitivityPanel.tsx (nuevo).
+- src/components/ResonanceMeter.tsx (nuevo).
+- src/components/EventLog.tsx (nuevo).
+- src/utils/exportExcel.ts (nuevo).
+- src/lib/resonance.ts (nuevo).
+- src/lib/solisModel.ts (opcional, utilidades).
+
+Opcional:
+- server.js en la raíz (para servir 'dist' con Express en Railway).
+
+Pasos rápidos:
+1) Descomprime en la RAÍZ de tu proyecto local BigBang_Final (sobrescribe si pregunta).
+2) Instala dependencia de Excel:
+   npm i xlsx
+3) Si vas a usar server.js en Railway:
+   - Asegúrate de tener en package.json:
+     "scripts": {
+       "dev": "vite",
+       "build": "vite build",
+       "preview": "vite preview",
+       "start": "node server.js",
+       "postinstall": "npm run build"
+     }
+   - En Railway: Start Command = npm start
+4) Local:
+   npm install
+   npm run dev   (desarrollo)
+   npm run build
+   npm start     (si adoptaste server.js)
+5) GitHub:
+   git add .
+   git commit -m "Integración HUD SOLIS + export Excel"
+   git push
+
+Notas:
+- exportGridPng() ya debe existir en src/utils/capture.ts de tu repo. No lo tocamos.
+- Si no quieres Express (server.js), ignóralo: Railway puede seguir con 'vite preview' si ya te funciona.
