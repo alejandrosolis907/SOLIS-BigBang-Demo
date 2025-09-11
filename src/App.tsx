@@ -2,6 +2,44 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AXIOM_LABELS, MICRO_LEGENDS } from "./axioms";
 import { exportGridPng } from "./utils/capture";
+import { ModeToggle } from "./ui/ModeToggle";
+import { SolisPanels } from "./ui/solis/Panels";
+import { SolisHud } from "./ui/solis/Hud";
+import { SimulationController, setUIMode } from "./solis/api";
+import { getBuffer } from "./solis/telemetry";
+import { exportExcel } from "./exports/xlsx";
+
+const SOLIS = process.env.UI_MODE_SOLIS_ENABLED === "1";
+
+async function handleExportExcel() {
+  if (!SOLIS) return;
+  const buf = getBuffer();
+  const meta = {
+    ui_mode: "SOLIS",
+    axioms_version: "v2",
+    exported_at: new Date().toISOString(),
+  };
+  try {
+    // @ts-ignore: exportExcel soporta path (Node) o retorna workbook/buffer (browser). Si solo soporta Node, no falles:
+    const maybe = await exportExcel({ series: buf.series, meta }, undefined);
+    if (maybe && maybe instanceof Blob) {
+      const url = URL.createObjectURL(maybe);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `SOLIS_export_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } else {
+      console.warn("[SOLIS] exportExcel en navegador: usando fallback (no descarga).");
+      alert("Export listo vía script de verificación (artifacts) o habilita soporte browser en exportExcel.");
+    }
+  } catch (e) {
+    console.warn("[SOLIS] exportExcel failed (browser):", e);
+    alert("No se pudo exportar el Excel en navegador. Usa el script de verificación.");
+  }
+}
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; };
@@ -168,6 +206,13 @@ export default function App(){
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: total}, ()=> true));
   const [palette, setPalette] = useState(0);
 
+  useEffect(() => {
+    if (!SOLIS) return;
+    setUIMode("SOLIS");
+    // No iniciar/stop automáticos aquí para no interferir con tu lógica
+    // if desired: SimulationController.start(); return () => SimulationController.stop();
+  }, []);
+
   useEffect(()=>{
     // resize grid preserves first N seeds
     const n = rows*cols;
@@ -235,6 +280,22 @@ export default function App(){
       </div>
 
       <AxiomOverlay enabled={showAxioms} />
+
+      {SOLIS && <ModeToggle />}
+      {SOLIS && <SolisPanels />}
+      {SOLIS && <SolisHud />}
+
+      {SOLIS && (
+        <div style={{ position: "fixed", bottom: 12, left: 12, zIndex: 9999 }}>
+          <button
+            onClick={handleExportExcel}
+            style={{ padding: "8px 12px", borderRadius: 8 }}
+            title="Exportar Excel (SOLIS)"
+          >
+            Exportar Excel (SOLIS)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
