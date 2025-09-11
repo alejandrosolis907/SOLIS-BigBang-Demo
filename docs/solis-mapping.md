@@ -1,12 +1,14 @@
 # SOLIS Mapping
 
-| Symbol | Code Module | Description |
-|--------|-------------|-------------|
-| Φ (Phi) | `src/solis/ontology.ts` | Potential state generator prior to collapse. |
-| 𝓛(x) (Lx) | `src/solis/ontology.ts` | Structural lattice controlling evolution. |
-| 𝓣 (Tau) | `src/solis/ontology.ts` | Functional derivative of R with respect to 𝓛(x); approximated as discrete ΔR/ΔLx. |
-| ℜ (Res) | `src/solis/ontology.ts` | Resonance selector weighting potential states. |
-| ε (Evt) | `src/solis/ontology.ts` | Collapse event making a potential state effective. |
-| R | `src/solis/ontology.ts` | Collapsed reality snapshot. |
+> Basado en "Axiomas del Modelo Metaontológico Trascendental – Arquitectura Teórica hacia una Teoría del Todo" v1.9.9.9.X © Alejandro Solís Hernández, licenciados bajo CC BY‑NC‑ND 4.0.
 
-> Referencias: 𝓣 = ∂R/∂𝓛(x), R = ε(ℜ(Φ,𝓛(x),𝓣)).
+| Symbol | Axioma | Code Module | Description |
+|--------|--------|-------------|-------------|
+| Φ (Phi) | II | `src/solis/ontology.ts` | Hipercampo de potenciales previo al colapso. |
+| 𝓛(x) (Lx) | III | `src/solis/ontology.ts` | Lattice estructural que filtra y formaliza Φ. |
+| 𝓣 (Tau) | IV | `src/solis/ontology.ts` | Derivada funcional del cambio: 𝓣 ≈ ΔR/Δ𝓛(x). |
+| ℜ (Res) | V | `src/solis/ontology.ts` | Resonancia que selecciona qué potenciales se actualizan. |
+| ε (Evt) | VI | `src/solis/ontology.ts` | Evento de colapso donde un potencial deviene real. |
+| R | VII | `src/solis/ontology.ts` | Realidad manifestada tras ε(ℜ(Φ,𝓛(x),𝓣)). |
+
+> Fórmulas clave: 𝓣 = ∂R/∂𝓛(x) y R = ε(ℜ(Φ,𝓛(x),𝓣)).

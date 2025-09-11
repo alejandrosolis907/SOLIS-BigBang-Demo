@@ -10,7 +10,7 @@ Este proyecto es un ejemplo mínimo que combina **React**, **Vite**, **Tailwind 
 
 ## Modo SOLIS
 La interfaz permite cambiar entre el modo original **BigBang** y **SOLIS** desde el selector de modo.
-En SOLIS se expone telemetría basada en los axiomas: Φ, 𝓛(x), ℜ, ε y 𝓣.
+En SOLIS se expone telemetría basada en los axiomas metaontológicos (v1.9.9.9.X): Φ, 𝓛(x), ℜ, ε y 𝓣.
 La derivada funcional del tiempo se aproxima como `𝓣 ≈ ΔR/Δ𝓛(x)` utilizando diferencias discretas entre pasos.
 
 ### Exports
@@ -19,7 +19,7 @@ La derivada funcional del tiempo se aproxima como `𝓣 ≈ ΔR/Δ𝓛(x)` utili
 
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
-- La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).
+- La documentación y los axiomas "Axiomas del Modelo Metaontológico Trascendental – Arquitectura Teórica hacia una Teoría del Todo" se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).
 
 ## Citación
 Si utilizas este trabajo, por favor cita este repositorio siguiendo la información en [CITATION.cff](CITATION.cff).
