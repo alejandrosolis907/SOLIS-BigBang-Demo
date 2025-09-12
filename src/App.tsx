@@ -92,6 +92,25 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
   const [poss, setPoss] = useState(seededPossibilities(seed, 36));
   const [timeline, setTimeline] = useState<EventEpsilon[]>([]);
 
+  // kernel/balance for resonance weighting (energy, symmetry, curvature)
+  const [kernel, setKernel] = useState<number[]>([0.6, 0.3, 0.1]);
+  const [snapshot, setSnapshot] = useState<number[][]>([]);
+  const [resNow, setResNow] = useState(0);
+  const accRef = useRef(0);
+  const tickRef = useRef(0);
+  const ADJUST_EVERY = 120;
+
+  const updateKernel = (i:number, val:number) => {
+    setKernel(prev => {
+      const next = [...prev];
+      next[i] = val;
+      const sum = next.reduce((a,b)=>a+b,0) || 1;
+      const norm = next.map(v=>v/sum);
+      setSnapshot(s=>[...s, norm]);
+      return norm;
+    });
+  };
+
   useEffect(() => { setPoss(seededPossibilities(seed, 36)); setTimeline([]); setT(0); }, [seed]);
 
   useEffect(() => {
@@ -99,17 +118,43 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
     let raf = 0;
     const loop = () => {
       setT(prev => prev + 1);
+
+      // calcular resonancia actual ponderada por el kernel
+      const r = poss.reduce((sum,p)=> sum + (p.energy*kernel[0] + p.symmetry*kernel[1] + Math.abs(p.curvature)*kernel[2]), 0)/poss.length;
+      setResNow(r);
+      accRef.current += r;
+      tickRef.current += 1;
+
       // probabilistic event (ε) with resonance (ℜ) flavor
       if (Math.random() < 0.06) {
         const id = poss[Math.floor(Math.random()*poss.length)].id;
         const score = Math.random();
         setTimeline(arr => [...arr, { t: t, collapsedId: id, score }].slice(-64));
       }
+
+      // cada cierto número de ticks ajusta automáticamente el kernel
+      if(tickRef.current % ADJUST_EVERY === 0){
+        const avg = accRef.current / ADJUST_EVERY;
+        const next = [...kernel];
+        if(avg > 0.55){
+          next[0] = Math.min(1, next[0] + 0.05);
+          next[2] = Math.max(0, next[2] - 0.05);
+        } else {
+          next[0] = Math.max(0, next[0] - 0.05);
+          next[2] = Math.min(1, next[2] + 0.05);
+        }
+        const sum = next.reduce((a,b)=>a+b,0) || 1;
+        const norm = next.map(v=>v/sum);
+        setKernel(norm);
+        setSnapshot(s=>[...s, norm]);
+        accRef.current = 0;
+      }
+
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, poss, t]);
+  }, [running, poss, kernel, t]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
@@ -119,6 +164,16 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
         <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetSoft}>Reset 𝓣/R</button>
         <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetHard}>Big Bang ♻︎</button>
         <span className="ml-auto">seed: {seed}</span>
+      </div>
+      <div className="mt-2 text-xs">
+        <div className="mb-1">ℜ̄: {resNow.toFixed(3)}</div>
+        {["energy","symmetry","curvature"].map((label,i)=>(
+          <label key={label} className="flex items-center gap-2">
+            <span className="w-16">{label}</span>
+            <input type="range" min={0} max={1} step={0.01} value={kernel[i]} onChange={e=>updateKernel(i, parseFloat(e.target.value))} />
+            <code>{kernel[i].toFixed(2)}</code>
+          </label>
+        ))}
       </div>
     </div>
   );
