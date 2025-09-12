@@ -3,7 +3,7 @@ import React from "react";
 export function LinePlot({
   data,
   color = "#39c0ba",
-  className = "",
+  className = "h-24 bg-slate-800",
 }: {
   data: number[];
   color?: string;
@@ -13,7 +13,7 @@ export function LinePlot({
     return (
       <svg
         viewBox="0 0 100 100"
-        className={`w-full h-24 bg-slate-800 rounded-md ${className}`}
+        className={`w-full rounded-md ${className}`}
       />
     );
   }
@@ -23,7 +23,7 @@ export function LinePlot({
   return (
     <svg
       viewBox="0 0 100 100"
-      className={`w-full h-24 bg-slate-800 rounded-md ${className}`}
+      className={`w-full rounded-md ${className}`}
       preserveAspectRatio="none"
     >
       <polyline points={points} fill="none" stroke={color} strokeWidth={2} />
