@@ -3,6 +3,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { exportGridPng } from "./utils/capture";
 import { LinePlot } from "./components/LinePlot";
 import { PhiCanvas } from "./components/PhiCanvas";
+import { GlobalParamsPanel } from "./components/GlobalParamsPanel";
+import { KernelEditor } from "./components/KernelEditor";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; };
@@ -26,9 +28,10 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
 }
 
 // ======= One universe cell with visual + plot =======
-function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory }:{
+function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory }:{
   seed: number;
   running: boolean;
+  speed: number;
   onToggle: () => void;
   onResetSoft: () => void;
   onResetHard: () => void;
@@ -57,13 +60,16 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
     lastPeakRef.current = null;
   }, [seed, onHistory]);
 
+  const runningRef = useRef(running);
+  useEffect(() => { runningRef.current = running; }, [running]);
+
   useEffect(() => {
     if (!running) return;
     let raf = 0;
     // continue from existing timeline so pause/resume doesn't reset phases
     let tt = t;
     const loop = () => {
-      tt++;
+      tt += speed;
 
       // Metaontological "Big Bang": rapid expansion followed by cooling
       // expansion term models Φ emergiendo desde Ω; cooling reflects fricción ontológica
@@ -121,11 +127,13 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
       }
 
       setT(tt);
-      raf = requestAnimationFrame(loop);
+      if (runningRef.current) {
+        raf = requestAnimationFrame(loop);
+      }
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, onHistory]);
+  }, [running, speed, onHistory]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
@@ -165,8 +173,18 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
 // ======= Main App: Grid + global controls =======
 export default function App(){
   const COUNT = 3;
-  const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> 42 + i*7));
+  const [baseSeed, setBaseSeed] = useState(42);
+  const [gridSize, setGridSize] = useState(32);
+  const [speed, setSpeed] = useState(1);
+  const [balance, setBalance] = useState(0);
+  const [kernel, setKernel] = useState<number[]>([0,-1,0,-1,5,-1,0,-1,0]);
+
+  const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
+
+  useEffect(() => {
+    setSeeds(Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
+  }, [baseSeed]);
 
   const startAll = () => setRunning(arr => arr.map(()=>true));
   const pauseAll = () => setRunning(arr => arr.map(()=>false));
@@ -207,36 +225,55 @@ export default function App(){
         </div>
       </header>
 
-      <div id="grid">
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          {seeds.map((s, i) => (
-            <UniverseCell
-              key={"v"+i+"-"+s}
-              seed={s}
-              running={running[i]}
-              onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
-              onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
-              onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
-              mode="visual"
-              label={`Cámara Φ-${i + 1}`}
-            />
-          ))}
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          {seeds.map((s, i) => (
-            <UniverseCell
-              key={"p"+i+"-"+s}
-              seed={s}
-              running={running[i]}
-              onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
-              onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
-              onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
-              mode="plot"
-              label={`Gráfica ${i + 1}`}
-              onHistory={arr => { historiesRef.current[i] = arr; }}
-            />
-          ))}
-        </div>
+      <div className="flex gap-4">
+        <aside className="w-2/5 space-y-4">
+          <GlobalParamsPanel
+            seedBase={baseSeed}
+            setSeedBase={setBaseSeed}
+            speed={speed}
+            setSpeed={setSpeed}
+            grid={gridSize}
+            setGrid={setGridSize}
+            balance={balance}
+            setBalance={setBalance}
+          />
+          <KernelEditor kernel={kernel} setKernel={setKernel} />
+        </aside>
+        <main className="w-3/5">
+          <div id="grid">
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              {seeds.map((s, i) => (
+                <UniverseCell
+                  key={"v"+i+"-"+s}
+                  seed={s}
+                  running={running[i]}
+                  speed={speed}
+                  onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
+                  onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
+                  onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
+                  mode="visual"
+                  label={`Cámara Φ-${i + 1}`}
+                />
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              {seeds.map((s, i) => (
+                <UniverseCell
+                  key={"p"+i+"-"+s}
+                  seed={s}
+                  running={running[i]}
+                  speed={speed}
+                  onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
+                  onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
+                  onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
+                  mode="plot"
+                  label={`Gráfica ${i + 1}`}
+                  onHistory={arr => { historiesRef.current[i] = arr; }}
+                />
+              ))}
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );
