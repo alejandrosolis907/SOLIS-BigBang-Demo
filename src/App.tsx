@@ -48,18 +48,23 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   const prevRef = useRef(0);
   const trendRef = useRef(0);
   const lastPeakRef = useRef<number | null>(null);
+  const onHistoryRef = useRef(onHistory);
+
+  useEffect(() => {
+    onHistoryRef.current = onHistory;
+  }, [onHistory]);
 
   const reset = React.useCallback(() => {
     setPoss(seededPossibilities(seed, 36));
     setHistory([]);
     setTimeline([]);
     setT(0);
-    onHistory?.([]);
+    onHistoryRef.current?.([]);
     setFreqHz(0);
     prevRef.current = 0;
     trendRef.current = 0;
     lastPeakRef.current = null;
-  }, [seed, onHistory]);
+  }, [seed]);
 
   useEffect(() => {
     reset();
@@ -106,7 +111,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
       const WINDOW = 30;
       setHistory(arr => {
         const next = [...arr.slice(-(WINDOW - 1)), avg];
-        onHistory?.(next);
+        onHistoryRef.current?.(next);
         return next;
       });
 
