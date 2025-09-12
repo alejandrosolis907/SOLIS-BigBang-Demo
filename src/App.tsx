@@ -103,18 +103,18 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
       let energyFirst = 0;
       setPoss(prev => {
         const next = prev.map((p, i) => {
-          const noise = 0.1 * (Math.random() - 0.5);
-          const oscill = 0.15 * Math.sin(tt * 0.05 + i);
+          const noise = 0.1 * speed * (Math.random() - 0.5);
+          const oscill = 0.15 * Math.sin(tt * 0.05 + i) * speed;
           const energy = Math.min(1, Math.max(0, base + oscill + noise));
           const symmetry = Math.min(
             1,
-            Math.max(0, 0.5 + 0.5 * Math.cos(tt * 0.03 + i) * base + 0.1 * (Math.random() - 0.5))
+            Math.max(0, 0.5 + 0.5 * Math.cos(tt * 0.03 + i) * base + 0.1 * speed * (Math.random() - 0.5))
           );
           const curvature = Math.max(
             -1,
-            Math.min(1, p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) + 0.05 * (Math.random() - 0.5))
+            Math.min(1, p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) * speed + 0.05 * speed * (Math.random() - 0.5))
           );
-          const phase = p.phase + 0.02 * speed + 0.01 * Math.sin(tt * 0.01 + i);
+          const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
           return { ...p, energy, symmetry, curvature, phase };
         });
         avg = next.reduce((a, p) => a + p.energy, 0) / next.length;
@@ -152,7 +152,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
       prev1Ref.current = energyFirst;
 
       // ε events sampled from resonant energy peaks
-      if (Math.random() < 0.06) {
+      if (Math.random() < 0.06 * speed) {
         setTimeline(arr => [...arr.slice(-63), { t: tt, score: avg }]);
       }
 
