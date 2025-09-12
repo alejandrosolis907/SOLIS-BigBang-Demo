@@ -15,7 +15,7 @@ export function PhiCanvas({
   paletteIndex = 0,
   className = "h-48",
 }: {
-  possibilities: { energy: number; symmetry: number; curvature: number }[];
+  possibilities: { energy: number; symmetry: number; curvature: number; phase: number }[];
   timeline: { t: number; score: number }[];
   t: number;
   speed?: number;
@@ -40,8 +40,8 @@ export function PhiCanvas({
     // Golden spiral particles (Φ fluctuations)
     const golden = Math.PI * (3 - Math.sqrt(5));
     possibilities.forEach((p, i) => {
-      const r = 20 + p.energy * 60 + 2 * Math.sin(t * 0.05 * speed + i);
-      const ang = i * golden + t * 0.02 * speed + p.symmetry * 4;
+      const r = 20 + p.energy * 60 + 2 * Math.sin(p.phase);
+      const ang = i * golden + p.phase + p.symmetry * 4;
       const x = W / 2 + r * Math.cos(ang);
       const y = H / 2 + r * Math.sin(ang);
       const hue = (p.energy * 180 + p.symmetry * 180) % 360;

@@ -8,7 +8,7 @@ import { KernelEditor } from "./components/KernelEditor";
 import { ResonanceMeter } from "./components/ResonanceMeter";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
-type Possibility = { id: string; energy: number; symmetry: number; curvature: number; };
+type Possibility = { id: string; energy: number; symmetry: number; curvature: number; phase: number; };
 function mulberry32(a: number) {
   return function () {
     let t = (a += 0x6d2b79f5);
@@ -23,7 +23,7 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
   const arr: Possibility[] = [];
   for (let i = 0; i < n; i++) {
     // start near an Ω-like vacuum: almost no energy, neutral symmetry and flat curvature
-    arr.push({ id: `p${i}`, energy: rnd() * 0.05, symmetry: 0.5, curvature: 0 });
+    arr.push({ id: `p${i}`, energy: rnd() * 0.05, symmetry: 0.5, curvature: 0, phase: rnd() * Math.PI * 2 });
   }
   return arr;
 }
@@ -106,7 +106,8 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
             -1,
             Math.min(1, p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) + 0.05 * (Math.random() - 0.5))
           );
-          return { ...p, energy, symmetry, curvature };
+          const phase = p.phase + 0.02 * speed + 0.01 * Math.sin(tt * 0.01 + i);
+          return { ...p, energy, symmetry, curvature, phase };
         });
         avg = next.reduce((a, p) => a + p.energy, 0) / next.length;
         res = next.reduce((a, p) => a + p.energy * p.symmetry, 0) / next.length;
