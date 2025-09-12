@@ -1,23 +1,26 @@
 import React, { useEffect, useRef } from "react";
 
 const PALETTES: string[][] = [
-  ["#7dd3fc","#a78bfa","#f0abfc","#f472b6","#60a5fa"],
-  ["#fef08a","#fca5a5","#fdba74","#f97316","#fde68a"],
-  ["#34d399","#22d3ee","#38bdf8","#a7f3d0","#f5d0fe"],
-  ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6"],
+  ["#7dd3fc", "#a78bfa", "#f0abfc", "#f472b6", "#60a5fa"],
+  ["#fef08a", "#fca5a5", "#fdba74", "#f97316", "#fde68a"],
+  ["#34d399", "#22d3ee", "#38bdf8", "#a7f3d0", "#f5d0fe"],
+  ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6"],
 ];
 
+export type Snapshot = {
+  possibilities: { energy: number; symmetry: number; curvature: number; phase: number }[];
+  timeline: { t: number; score: number }[];
+  t: number;
+  energy: number;
+};
+
 export function PhiCanvas({
-  possibilities,
-  timeline,
-  t,
+  snapshot,
   speed = 1,
   paletteIndex = 0,
   className = "h-48",
 }: {
-  possibilities: { energy: number; symmetry: number; curvature: number; phase: number }[];
-  timeline: { t: number; score: number }[];
-  t: number;
+  snapshot: Snapshot;
   speed?: number;
   paletteIndex?: number;
   className?: string;
@@ -29,6 +32,8 @@ export function PhiCanvas({
     const ctx = cvs.getContext("2d")!;
     const W = (cvs.width = cvs.clientWidth);
     const H = (cvs.height = cvs.clientHeight);
+
+    const { possibilities, timeline, t } = snapshot;
 
     // Background gradient inspired by multiverse palettes
     const pal = PALETTES[paletteIndex % PALETTES.length];
@@ -69,7 +74,7 @@ export function PhiCanvas({
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }, [possibilities, timeline, t, speed, paletteIndex]);
+  }, [snapshot, speed, paletteIndex]);
 
   return <canvas ref={ref} className={`w-full rounded-xl ${className}`} />;
 }

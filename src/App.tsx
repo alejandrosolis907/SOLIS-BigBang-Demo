@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { exportGridPng } from "./utils/capture";
 import { LinePlot } from "./components/LinePlot";
-import { PhiCanvas } from "./components/PhiCanvas";
+import { PhiCanvas, type Snapshot as PhiSnapshot } from "./components/PhiCanvas";
 import { GlobalParamsPanel } from "./components/GlobalParamsPanel";
 import { KernelEditor } from "./components/KernelEditor";
 import { ResonanceMeter } from "./components/ResonanceMeter";
@@ -44,37 +44,41 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
   onHistory?: (hist: number[]) => void;
   resetSignal: number;
 }){
-  const [poss, setPoss] = useState(seededPossibilities(seed, grid));
-  const [history, setHistory] = useState<number[]>([]);
-  const [timeline, setTimeline] = useState<{t:number; score:number}[]>([]);
-  const [t, setT] = useState(0);
+  const [snapshot, setSnapshot] = useState<PhiSnapshot>(() => ({
+    t: 0,
+    energy: 0,
+    symmetry: 0.5,
+    curvature: 0,
+    possibilities: seededPossibilities(seed, grid),
+    timeline: [],
+  }));
+  const snapshotRef = useRef(snapshot);
+  useEffect(() => { snapshotRef.current = snapshot; }, [snapshot]);
   const [freqHz, setFreqHz] = useState(0);
   const [resonance, setResonance] = useState(0);
-  // keep a short rolling buffer to estimate frequency from the first particle's energy oscillations
   const prev1Ref = useRef<number | null>(null);
   const prev2Ref = useRef<number | null>(null);
   const lastPeakTickRef = useRef<number | null>(null);
-  const onHistoryRef = useRef(onHistory);
-
-  useEffect(() => {
-    onHistoryRef.current = onHistory;
-  }, [onHistory]);
 
   const reset = React.useCallback(() => {
-    setPoss(seededPossibilities(seed, grid));
-    setHistory([]);
-    setTimeline([]);
-    setT(0);
-    onHistoryRef.current?.([]);
+    const snap: PhiSnapshot = {
+      t: 0,
+      energy: 0,
+      symmetry: 0.5,
+      curvature: 0,
+      possibilities: seededPossibilities(seed, grid),
+      timeline: [],
+    };
+    snapshotRef.current = snap;
+    setSnapshot(snap);
+    onHistory?.([]);
     setFreqHz(0);
     prev1Ref.current = null;
     prev2Ref.current = null;
     lastPeakTickRef.current = null;
-  }, [seed, grid]);
+  }, [seed, grid, onHistory]);
 
-  useEffect(() => {
-    reset();
-  }, [reset, resetSignal]);
+  useEffect(() => { reset(); }, [reset, resetSignal]);
 
   const runningRef = useRef(running);
   useEffect(() => {
@@ -90,66 +94,59 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
   useEffect(() => {
     if (!running) return;
     let raf = 0;
-    // continue from existing timeline so pause/resume doesn't reset phases
-    let tt = t;
     const loop = () => {
-      tt += speed;
+      const prev = snapshotRef.current;
+      const tt = prev.t + speed;
 
-      // Metaontological "Big Bang": rapid expansion followed by cooling
-      // expansion term models Φ emergiendo desde Ω; cooling reflects fricción ontológica
       const expansion = 1 - Math.exp(-tt * 0.02);
       const cooling = Math.exp(-tt * 0.0005);
       const base = expansion * cooling;
 
-      let avg = 0;
-      let res = 0;
+      const center = kernel[4] ?? 1;
+      const ksum = kernel.reduce((a, b) => a + b, 0) || 1;
       let energyFirst = 0;
-      setPoss(prev => {
-        const center = kernel[4] ?? 1;
-        const ksum = kernel.reduce((a, b) => a + b, 0) || 1;
-        const next = prev.map((p, i) => {
-          const noise = 0.1 * speed * (Math.random() - 0.5);
-          const oscill = 0.15 * Math.sin(tt * 0.05 + i) * speed;
-          const energy = Math.min(
+      const nextPoss = prev.possibilities.map((p, i) => {
+        const noise = 0.1 * speed * (Math.random() - 0.5);
+        const oscill = 0.15 * Math.sin(tt * 0.05 + i) * speed;
+        const energy = Math.min(
+          1,
+          Math.max(0, base * center + oscill + noise + balance * 0.5)
+        );
+        const symmetry = Math.min(
+          1,
+          Math.max(
+            0,
+            0.5 + 0.5 * Math.cos(tt * 0.03 + i) * base * (ksum / 9) +
+              balance * 0.5 + 0.1 * speed * (Math.random() - 0.5)
+          )
+        );
+        const curvature = Math.max(
+          -1,
+          Math.min(
             1,
-            Math.max(0, base * center + oscill + noise + balance * 0.5)
-          );
-          const symmetry = Math.min(
-            1,
-            Math.max(
-              0,
-              0.5 + 0.5 * Math.cos(tt * 0.03 + i) * base * (ksum / 9) +
-                balance * 0.5 + 0.1 * speed * (Math.random() - 0.5)
-            )
-          );
-          const curvature = Math.max(
-            -1,
-            Math.min(
-              1,
-              p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) * speed +
-                (center - 1) * 0.1 + 0.05 * speed * (Math.random() - 0.5)
-            )
-          );
-          const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
-          return { ...p, energy, symmetry, curvature, phase };
-        });
-        avg = next.reduce((a, p) => a + p.energy, 0) / next.length;
-        res = next.reduce((a, p) => a + p.energy * p.symmetry, 0) / next.length;
-        energyFirst = next[0]?.energy ?? 0;
-        return next;
+            p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) * speed +
+              (center - 1) * 0.1 + 0.05 * speed * (Math.random() - 0.5)
+          )
+        );
+        const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
+        return { ...p, energy, symmetry, curvature, phase };
       });
+      const avg = nextPoss.reduce((a, p) => a + p.energy, 0) / nextPoss.length;
+      const avgSym = nextPoss.reduce((a, p) => a + p.symmetry, 0) / nextPoss.length;
+      const avgCurv = nextPoss.reduce((a, p) => a + p.curvature, 0) / nextPoss.length;
+      const res = nextPoss.reduce((a, p) => a + p.energy * p.symmetry, 0) / nextPoss.length;
+      energyFirst = nextPoss[0]?.energy ?? 0;
+
+      let timeline = prev.timeline;
+      if (Math.random() < 0.06 * speed) {
+        timeline = [...timeline.slice(-63), { t: tt, score: avg }];
+      }
+
+      const snap: PhiSnapshot = { t: tt, energy: avg, symmetry: avgSym, curvature: avgCurv, possibilities: nextPoss, timeline };
+      snapshotRef.current = snap;
+      setSnapshot(snap);
       setResonance(res);
 
-      // capture the average energy for the analytic graph (R)
-      // show a broader historical panorama of the energy signal
-      const WINDOW = 60;
-      setHistory(arr => {
-        const next = [...arr.slice(-(WINDOW - 1)), avg];
-        onHistoryRef.current?.(next);
-        return next;
-      });
-
-      // frequency estimation using local maxima of the first particle's energy
       if (
         prev2Ref.current !== null &&
         prev1Ref.current !== null &&
@@ -167,28 +164,20 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
       prev2Ref.current = prev1Ref.current;
       prev1Ref.current = energyFirst;
 
-      // ε events sampled from resonant energy peaks
-      if (Math.random() < 0.06 * speed) {
-        setTimeline(arr => [...arr.slice(-63), { t: tt, score: avg }]);
-      }
-
-      setT(tt);
       if (runningRef.current) {
         raf = requestAnimationFrame(loop);
       }
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, speed, onHistory, balance, kernel]);
+  }, [running, speed, balance, kernel]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
       {label && <div className="text-sm font-semibold mb-2">{label}</div>}
       {mode !== "plot" && (
         <PhiCanvas
-          possibilities={poss}
-          timeline={timeline}
-          t={t}
+          snapshot={snapshot}
           speed={speed}
           className="h-48"
           paletteIndex={seed}
@@ -196,7 +185,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
       )}
       {mode !== "visual" && (
         <div className={mode === "both" ? "mt-3" : ""}>
-          <LinePlot data={history} />
+          <LinePlot snapshot={snapshot} onHistory={onHistory} />
           <div className="text-xs mt-1">f ≈ {freqHz.toFixed(2)} Hz</div>
           <div className="mt-2"><ResonanceMeter value={resonance} /></div>
         </div>
