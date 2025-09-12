@@ -28,7 +28,7 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
 }
 
 // ======= One universe cell with visual + plot =======
-function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory }:{
+function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal }:{
   seed: number;
   running: boolean;
   speed: number;
@@ -38,6 +38,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   mode?: "visual" | "plot" | "both";
   label?: string;
   onHistory?: (hist: number[]) => void;
+  resetSignal: number;
 }){
   const [poss, setPoss] = useState(seededPossibilities(seed, 36));
   const [history, setHistory] = useState<number[]>([]);
@@ -48,7 +49,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   const trendRef = useRef(0);
   const lastPeakRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  const reset = React.useCallback(() => {
     setPoss(seededPossibilities(seed, 36));
     setHistory([]);
     setTimeline([]);
@@ -59,6 +60,10 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
     trendRef.current = 0;
     lastPeakRef.current = null;
   }, [seed, onHistory]);
+
+  useEffect(() => {
+    reset();
+  }, [reset, resetSignal]);
 
   const runningRef = useRef(running);
   useEffect(() => { runningRef.current = running; }, [running]);
@@ -181,15 +186,19 @@ export default function App(){
 
   const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
+  const [resetSignals, setResetSignals] = useState<number[]>(() => Array.from({length: COUNT}, ()=> 0));
 
   useEffect(() => {
     setSeeds(Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
+    setResetSignals(Array.from({length: COUNT}, ()=>0));
   }, [baseSeed]);
 
   const startAll = () => setRunning(arr => arr.map(()=>true));
   const pauseAll = () => setRunning(arr => arr.map(()=>false));
-  const resetAllSoft = () => setSeeds(prev => [...prev]); // triggers soft reset via key change in UniverseCell
-  const resetAllHard = () => setSeeds(prev => prev.map((_,i)=> Math.floor(Math.random()*100000)));
+  const resetAllSoft = () => setResetSignals(arr => arr.map(v=> v+1));
+  const resetAllHard = () => {
+    setSeeds(prev => prev.map((_,i)=> Math.floor(Math.random()*100000)));
+  };
 
   const historiesRef = useRef<number[][]>(Array.from({length: COUNT}, ()=>[]));
 
@@ -249,10 +258,11 @@ export default function App(){
                   running={running[i]}
                   speed={speed}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
-                  onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
+                  onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
                   onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
                   mode="visual"
                   label={`Cámara Φ-${i + 1}`}
+                  resetSignal={resetSignals[i]}
                 />
               ))}
             </div>
@@ -264,11 +274,12 @@ export default function App(){
                   running={running[i]}
                   speed={speed}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
-                  onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
+                  onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
                   onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
                   mode="plot"
                   label={`Gráfica ${i + 1}`}
                   onHistory={arr => { historiesRef.current[i] = arr; }}
+                  resetSignal={resetSignals[i]}
                 />
               ))}
             </div>
