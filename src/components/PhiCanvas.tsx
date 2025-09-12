@@ -11,12 +11,14 @@ export function PhiCanvas({
   possibilities,
   timeline,
   t,
+  speed = 1,
   paletteIndex = 0,
   className = "h-48",
 }: {
   possibilities: { energy: number; symmetry: number; curvature: number }[];
   timeline: { t: number; score: number }[];
   t: number;
+  speed?: number;
   paletteIndex?: number;
   className?: string;
 }) {
@@ -38,8 +40,8 @@ export function PhiCanvas({
     // Golden spiral particles (Φ fluctuations)
     const golden = Math.PI * (3 - Math.sqrt(5));
     possibilities.forEach((p, i) => {
-      const r = 20 + p.energy * 60 + 2 * Math.sin(t * 0.05 + i);
-      const ang = i * golden + t * 0.02 + p.symmetry * 4;
+      const r = 20 + p.energy * 60 + 2 * Math.sin(t * 0.05 * speed + i);
+      const ang = i * golden + t * 0.02 * speed + p.symmetry * 4;
       const x = W / 2 + r * Math.cos(ang);
       const y = H / 2 + r * Math.sin(ang);
       const hue = (p.energy * 180 + p.symmetry * 180) % 360;
@@ -54,7 +56,7 @@ export function PhiCanvas({
     // ε event pulses
     ctx.shadowBlur = 0;
     for (const e of timeline.slice(-8)) {
-      const phase = (t - e.t) * 0.05;
+      const phase = (t - e.t) * 0.05 * speed;
       if (phase < 0) continue; // ignore events from future frames after resume
       const alpha = Math.max(0, 0.6 - phase * 0.08);
       if (alpha <= 0) continue;
@@ -67,7 +69,7 @@ export function PhiCanvas({
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }, [possibilities, timeline, t, paletteIndex]);
+  }, [possibilities, timeline, t, speed, paletteIndex]);
 
   return <canvas ref={ref} className={`w-full rounded-xl ${className}`} />;
 }

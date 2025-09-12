@@ -153,6 +153,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
           possibilities={poss}
           timeline={timeline}
           t={t}
+          speed={speed}
           className="h-48"
           paletteIndex={seed}
         />
