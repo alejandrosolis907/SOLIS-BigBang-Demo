@@ -50,7 +50,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   // keep a short rolling buffer to estimate frequency from the first particle's energy oscillations
   const prev1Ref = useRef<number | null>(null);
   const prev2Ref = useRef<number | null>(null);
-  const lastPeakTimeRef = useRef<number | null>(null);
+  const lastPeakTickRef = useRef<number | null>(null);
   const onHistoryRef = useRef(onHistory);
 
   useEffect(() => {
@@ -66,7 +66,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
     setFreqHz(0);
     prev1Ref.current = null;
     prev2Ref.current = null;
-    lastPeakTimeRef.current = null;
+    lastPeakTickRef.current = null;
   }, [seed]);
 
   useEffect(() => {
@@ -74,7 +74,15 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   }, [reset, resetSignal]);
 
   const runningRef = useRef(running);
-  useEffect(() => { runningRef.current = running; }, [running]);
+  useEffect(() => {
+    runningRef.current = running;
+    if (!running) {
+      prev1Ref.current = null;
+      prev2Ref.current = null;
+      lastPeakTickRef.current = null;
+      setFreqHz(0);
+    }
+  }, [running]);
 
   useEffect(() => {
     if (!running) return;
@@ -132,14 +140,13 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
         prev1Ref.current > prev2Ref.current &&
         prev1Ref.current > energyFirst
       ) {
-        const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-        if (lastPeakTimeRef.current != null) {
-          const periodSec = (now - lastPeakTimeRef.current) / 1000;
-          if (periodSec > 0) {
-            setFreqHz(1 / periodSec);
+        if (lastPeakTickRef.current != null) {
+          const periodTicks = tt - lastPeakTickRef.current;
+          if (periodTicks > 0) {
+            setFreqHz((60 * speed) / periodTicks);
           }
         }
-        lastPeakTimeRef.current = now;
+        lastPeakTickRef.current = tt;
       }
       prev2Ref.current = prev1Ref.current;
       prev1Ref.current = energyFirst;
