@@ -254,9 +254,9 @@ export default function App(){
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
-      <header className="flex items-center justify-between mb-4">
-        <h1 className="text-xl sm:text-2xl font-bold">BigBangSim — Φ ∘ 𝓛(x) → R</h1>
-        <div className="flex flex-wrap gap-2">
+      <header className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-center sm:text-left">BigBangSim — Φ ∘ 𝓛(x) → R</h1>
+        <div className="flex flex-wrap justify-center sm:justify-end gap-2">
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={startAll}>Iniciar todo</button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={pauseAll}>Pausar todo</button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={resetAllSoft}>Reset 𝓣/R</button>
@@ -266,8 +266,8 @@ export default function App(){
         </div>
       </header>
 
-      <div className="flex gap-4">
-        <aside className="w-2/5 space-y-4">
+      <div className="flex flex-col lg:flex-row gap-4">
+        <aside className="space-y-4 w-full lg:w-2/5">
           <GlobalParamsPanel
             seedBase={baseSeed}
             setSeedBase={setBaseSeed}
@@ -280,9 +280,9 @@ export default function App(){
           />
           <KernelEditor kernel={kernel} setKernel={setKernel} />
         </aside>
-        <main className="w-3/5">
+        <main className="w-full lg:w-3/5">
           <div id="grid">
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               {seeds.map((s, i) => (
                 <UniverseCell
                   key={"v"+i+"-"+s}
@@ -301,7 +301,7 @@ export default function App(){
                 />
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {seeds.map((s, i) => (
                 <UniverseCell
                   key={"p"+i+"-"+s}
