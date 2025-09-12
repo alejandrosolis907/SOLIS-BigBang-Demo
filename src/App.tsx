@@ -124,9 +124,9 @@ export default function App(){
   const exportExcel = () => {
     const rows: string[] = [];
     historiesRef.current.forEach((hist, i) => {
-      rows.push(`Grafica ${i}`);
+      rows.push(`Gráfica ${i + 1}`);
       rows.push("t,value");
-      hist.forEach((v, idx) => rows.push(`${idx},${v}`));
+      hist.forEach((v, idx) => rows.push(`${idx + 1},${v}`));
       rows.push("");
     });
     const csv = rows.join("\n");
@@ -164,7 +164,7 @@ export default function App(){
               onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
               onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
               mode="visual"
-              label={`Cámara Φ-${i}`}
+              label={`Cámara Φ-${i + 1}`}
             />
           ))}
         </div>
@@ -178,7 +178,7 @@ export default function App(){
               onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
               onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
               mode="plot"
-              label={`Gráfica ${i}`}
+              label={`Gráfica ${i + 1}`}
               onHistory={arr => { historiesRef.current[i] = arr; }}
             />
           ))}
