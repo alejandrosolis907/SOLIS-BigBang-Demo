@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AXIOM_LABELS, MICRO_LEGENDS } from "./axioms";
 import { exportGridPng } from "./utils/capture";
 import { LinePlot } from "./components/LinePlot";
@@ -24,21 +24,105 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
   return arr;
 }
 
-// ======= One universe cell with line plot =======
-function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard }:{
-  seed: number; running: boolean; onToggle: () => void; onResetSoft: () => void; onResetHard: () => void;
+// ======= Color palettes for Phi visualization =======
+const PALETTES: string[][] = [
+  ["#7dd3fc","#a78bfa","#f0abfc","#f472b6","#60a5fa"],
+  ["#fef08a","#fca5a5","#fdba74","#f97316","#fde68a"],
+  ["#34d399","#22d3ee","#38bdf8","#a7f3d0","#f5d0fe"],
+  ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6"],
+];
+
+// ======= The visual canvas (Φ possibilities + ε timeline) =======
+function PhiCanvas({ possibilities, timeline, t, paletteIndex }:{
+  possibilities: Possibility[];
+  timeline: { t: number; collapsedId: string; score: number; }[];
+  t: number;
+  paletteIndex: number;
 }){
+  const ref = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const cvs = ref.current!;
+    const ctx = cvs.getContext("2d")!;
+    const W = (cvs.width = cvs.clientWidth);
+    const H = (cvs.height = cvs.clientHeight);
+
+    const grad = ctx.createLinearGradient(0,0,W,H);
+    const pal = PALETTES[paletteIndex % PALETTES.length];
+    pal.forEach((c, i) => grad.addColorStop(i/(pal.length-1), c));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+
+    for (let i = 0; i < possibilities.length; i++) {
+      const p = possibilities[i];
+      const x = ((i * 9973) % W) * 0.03 + (p.symmetry * W) % W;
+      const y = ((i * 7919) % H) * 0.04 + ((p.energy + 0.12 * Math.sin(t*0.03+i)) * H) % H;
+      const r = 2 + 3 * Math.abs(p.curvature);
+      const hue = Math.floor(360 * (p.energy * 0.6 + p.symmetry * 0.4));
+      ctx.beginPath();
+      ctx.fillStyle = `hsla(${hue}, 90%, 60%, 0.85)`;
+      ctx.shadowColor = `hsla(${hue}, 100%, 70%, 0.9)`;
+      ctx.shadowBlur = 12;
+      ctx.arc(x % W, y % H, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+    for (const e of timeline.slice(-8)) {
+      const phase = (t - e.t) * 0.05;
+      const alpha = Math.max(0, 0.6 - phase * 0.08);
+      if (alpha <= 0) continue;
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.lineWidth = 1 + 2 * (1 - alpha);
+      const cx = (e.score * 997) % W;
+      const cy = (e.score * 661) % H;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 12 + phase*12, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }, [possibilities, timeline, t, paletteIndex]);
+
+  return <canvas ref={ref} className="w-full rounded-xl" style={{ height: 200 }} />;
+}
+
+// ======= One universe cell with visual + plot =======
+function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, paletteIndex }:{
+  seed: number;
+  running: boolean;
+  onToggle: () => void;
+  onResetSoft: () => void;
+  onResetHard: () => void;
+  paletteIndex: number;
+}){
+  const [t, setT] = useState(0);
   const [poss, setPoss] = useState(seededPossibilities(seed, 36));
+  const [timeline, setTimeline] = useState<{ t: number; collapsedId: string; score: number; }[]>([]);
   const [history, setHistory] = useState<number[]>([]);
 
-  useEffect(() => { setPoss(seededPossibilities(seed, 36)); setHistory([]); }, [seed]);
+  useEffect(() => {
+    setPoss(seededPossibilities(seed, 36));
+    setTimeline([]);
+    setHistory([]);
+    setT(0);
+  }, [seed]);
 
   useEffect(() => {
     if (!running) return;
     let raf = 0;
+    let tt = 0;
     const loop = () => {
-      const avg = poss.reduce((a,p)=>a+p.energy,0)/poss.length;
-      setHistory(arr => [...arr.slice(-99), avg]);
+      tt++;
+      setT(tt);
+      // oscillating metric for plot
+      const base = poss.reduce((a,p)=>a+p.energy,0)/poss.length;
+      const osc = 0.3*Math.sin(tt*0.05) + 0.2*Math.sin(tt*0.013);
+      const val = Math.min(1, Math.max(0, base + osc));
+      setHistory(arr => [...arr.slice(-99), val]);
+      if (Math.random() < 0.06) {
+        const id = poss[Math.floor(Math.random()*poss.length)].id;
+        const score = Math.random();
+        setTimeline(arr => [...arr, { t: tt, collapsedId: id, score }].slice(-64));
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -47,9 +131,17 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard }:{
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
-      <LinePlot data={history} />
+      <PhiCanvas possibilities={poss} timeline={timeline} t={t} paletteIndex={paletteIndex} />
+      <div className="mt-3">
+        <LinePlot data={history} />
+      </div>
       <div className="mt-2 flex items-center gap-2 text-xs opacity-80">
-        <button className={"px-2 py-1 rounded-md "+(running?"bg-slate-800":"bg-indigo-700") } onClick={onToggle}>{running? "Pausar 𝓣":"Iniciar 𝓣"}</button>
+        <button
+          className={"px-2 py-1 rounded-md "+(running?"bg-slate-800":"bg-indigo-700") }
+          onClick={onToggle}
+        >
+          {running? "Pausar 𝓣":"Iniciar 𝓣"}
+        </button>
         <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetSoft}>Reset 𝓣/R</button>
         <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetHard}>Big Bang ♻︎</button>
         <span className="ml-auto">seed: {seed}</span>
@@ -146,7 +238,7 @@ export default function App(){
         <select value={cols} onChange={e=>setCols(parseInt(e.target.value))} className="bg-slate-900 rounded-md px-2 py-1">
           {[1,2,3,4].map(n=><option key={n} value={n}>{n} cols</option>)}
         </select>
-        {/* Paleta eliminada para una interfaz más científica */}
+        {/* Paleta fija: se cicla automáticamente entre cámaras */}
       </div>
 
       <div id="grid" className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
@@ -158,6 +250,7 @@ export default function App(){
             onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
             onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
             onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
+            paletteIndex={i % PALETTES.length}
           />
         ))}
       </div>
