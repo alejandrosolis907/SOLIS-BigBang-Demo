@@ -5,6 +5,7 @@ import { LinePlot } from "./components/LinePlot";
 import { PhiCanvas } from "./components/PhiCanvas";
 import { GlobalParamsPanel } from "./components/GlobalParamsPanel";
 import { KernelEditor } from "./components/KernelEditor";
+import { ResonanceMeter } from "./components/ResonanceMeter";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; };
@@ -45,6 +46,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   const [timeline, setTimeline] = useState<{t:number; score:number}[]>([]);
   const [t, setT] = useState(0);
   const [freqHz, setFreqHz] = useState(0);
+  const [resonance, setResonance] = useState(0);
   // keep a short rolling buffer to estimate frequency from energy oscillations
   const prev1Ref = useRef<number | null>(null);
   const prev2Ref = useRef<number | null>(null);
@@ -89,6 +91,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
       const base = expansion * cooling;
 
       let avg = 0;
+      let res = 0;
       setPoss(prev => {
         const next = prev.map((p, i) => {
           const noise = 0.1 * (Math.random() - 0.5);
@@ -105,8 +108,10 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
           return { ...p, energy, symmetry, curvature };
         });
         avg = next.reduce((a, p) => a + p.energy, 0) / next.length;
+        res = next.reduce((a, p) => a + p.energy * p.symmetry, 0) / next.length;
         return next;
       });
+      setResonance(res);
 
       // capture the average energy for the analytic graph (R)
       const WINDOW = 30;
@@ -166,6 +171,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
         <div className={mode === "both" ? "mt-3" : ""}>
           <LinePlot data={history} />
           <div className="text-xs mt-1">f ≈ {freqHz.toFixed(2)} Hz</div>
+          <div className="mt-2"><ResonanceMeter value={resonance} /></div>
         </div>
       )}
       {mode !== "visual" && (
