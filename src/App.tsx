@@ -185,7 +185,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
       )}
       {mode !== "visual" && (
         <div className={mode === "both" ? "mt-3" : ""}>
-          <LinePlot snapshot={snapshot} onHistory={onHistory} />
+          <LinePlot snapshot={snapshot} running={running} onHistory={onHistory} />
           <div className="text-xs mt-1">f ≈ {freqHz.toFixed(2)} Hz</div>
           <div className="mt-2"><ResonanceMeter value={resonance} /></div>
         </div>

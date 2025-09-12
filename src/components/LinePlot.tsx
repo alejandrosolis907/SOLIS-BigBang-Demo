@@ -3,11 +3,13 @@ import type { Snapshot } from "./PhiCanvas";
 
 export function LinePlot({
   snapshot,
+  running,
   onHistory,
   color = "#39c0ba",
   className = "h-24 bg-slate-800",
 }: {
   snapshot: Snapshot;
+  running: boolean;
   onHistory?: (hist: number[]) => void;
   color?: string;
   className?: string;
@@ -16,22 +18,25 @@ export function LinePlot({
   const lastT = useRef(0);
 
   useEffect(() => {
+    if (!running) return; // keep last curve frozen when paused
     if (snapshot.t === 0) {
       setData([]);
       onHistory?.([]);
       lastT.current = 0;
       return;
     }
-    if (snapshot.t === lastT.current) return; // paused or no progress
+    if (snapshot.t === lastT.current) return; // no progress
     setData((arr) => {
       const next = [...arr.slice(-29), snapshot.energy];
       onHistory?.(next);
       return next;
     });
     lastT.current = snapshot.t;
-  }, [snapshot, onHistory]);
+  }, [snapshot, running, onHistory]);
 
-  if (data.length < 2) {
+  // if only a single sample exists, duplicate it so a horizontal line remains visible
+  const plotData = data.length === 1 ? [...data, data[0]] : data;
+  if (plotData.length < 2) {
     return (
       <svg
         viewBox="0 0 100 100"
@@ -40,15 +45,15 @@ export function LinePlot({
     );
   }
 
-  const min = Math.min(...data);
-  const max = Math.max(...data);
+  const min = Math.min(...plotData);
+  const max = Math.max(...plotData);
   const mid = (min + max) / 2;
   const half = ((max - min) / 2 || 0.5) * 1.6;
   const lo = mid - half;
   const hi = mid + half;
   const range = hi - lo || 1;
-  const points = data
-    .map((v, i) => `${(i / (data.length - 1)) * 100},${(1 - (v - lo) / range) * 100}`)
+  const points = plotData
+    .map((v, i) => `${(i / (plotData.length - 1)) * 100},${(1 - (v - lo) / range) * 100}`)
     .join(" ");
 
   return (
