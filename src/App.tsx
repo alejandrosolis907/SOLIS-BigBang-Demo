@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { exportGridPng } from "./utils/capture";
 import { LinePlot } from "./components/LinePlot";
+import { PhiCanvas } from "./components/PhiCanvas";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; };
@@ -36,10 +37,14 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
 }){
   const [poss, setPoss] = useState(seededPossibilities(seed, 36));
   const [history, setHistory] = useState<number[]>([]);
+  const [timeline, setTimeline] = useState<{t:number; score:number}[]>([]);
+  const [t, setT] = useState(0);
 
   useEffect(() => {
     setPoss(seededPossibilities(seed, 36));
     setHistory([]);
+    setTimeline([]);
+    setT(0);
     onHistory?.([]);
   }, [seed, onHistory]);
 
@@ -58,17 +63,27 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
         onHistory?.(next);
         return next;
       });
+      if (Math.random() < 0.06) {
+        setTimeline(arr => [...arr.slice(-63), { t: tt, score: Math.random() }]);
+      }
+      setT(tt);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, poss]);
+  }, [running, poss, onHistory]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
       {label && <div className="text-sm font-semibold mb-2">{label}</div>}
       {mode !== "plot" && (
-        <LinePlot data={history} className="h-48 bg-indigo-900" />
+        <PhiCanvas
+          possibilities={poss}
+          timeline={timeline}
+          t={t}
+          className="h-48"
+          paletteIndex={seed}
+        />
       )}
       {mode !== "visual" && (
         <div className={mode === "both" ? "mt-3" : ""}>
