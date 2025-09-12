@@ -86,13 +86,15 @@ function PhiCanvas({ possibilities, timeline, t, paletteIndex }:{
 }
 
 // ======= One universe cell with visual + plot =======
-function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, paletteIndex }:{
+function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, paletteIndex, mode = "both", label }:{
   seed: number;
   running: boolean;
   onToggle: () => void;
   onResetSoft: () => void;
   onResetHard: () => void;
   paletteIndex: number;
+  mode?: "visual" | "plot" | "both";
+  label?: string;
 }){
   const [t, setT] = useState(0);
   const [poss, setPoss] = useState(seededPossibilities(seed, 36));
@@ -131,21 +133,28 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
-      <PhiCanvas possibilities={poss} timeline={timeline} t={t} paletteIndex={paletteIndex} />
-      <div className="mt-3">
-        <LinePlot data={history} />
-      </div>
-      <div className="mt-2 flex items-center gap-2 text-xs opacity-80">
-        <button
-          className={"px-2 py-1 rounded-md "+(running?"bg-slate-800":"bg-indigo-700") }
-          onClick={onToggle}
-        >
-          {running? "Pausar 𝓣":"Iniciar 𝓣"}
-        </button>
-        <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetSoft}>Reset 𝓣/R</button>
-        <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetHard}>Big Bang ♻︎</button>
-        <span className="ml-auto">seed: {seed}</span>
-      </div>
+      {label && <div className="text-sm font-semibold mb-2">{label}</div>}
+      {mode !== "plot" && (
+        <PhiCanvas possibilities={poss} timeline={timeline} t={t} paletteIndex={paletteIndex} />
+      )}
+      {mode !== "visual" && (
+        <div className={mode === "both" ? "mt-3" : ""}>
+          <LinePlot data={history} />
+        </div>
+      )}
+      {mode !== "visual" && (
+        <div className="mt-2 flex items-center gap-2 text-xs opacity-80">
+          <button
+            className={"px-2 py-1 rounded-md "+(running?"bg-slate-800":"bg-indigo-700") }
+            onClick={onToggle}
+          >
+            {running? "Pausar 𝓣":"Iniciar 𝓣"}
+          </button>
+          <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetSoft}>Reset 𝓣/R</button>
+          <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetHard}>Big Bang ♻︎</button>
+          <span className="ml-auto">seed: {seed}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -187,18 +196,9 @@ function AxiomOverlay({ enabled }:{ enabled: boolean }){
 
 // ======= Main App: Grid + global controls + overlay toggle =======
 export default function App(){
-  const [rows, setRows] = useState(2);
-  const [cols, setCols] = useState(3);
-  const total = rows*cols;
-  const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: total}, (_,i)=> 42 + i*7));
-  const [running, setRunning] = useState<boolean[]>(() => Array.from({length: total}, ()=> true));
-
-  useEffect(()=>{
-    // resize grid preserves first N seeds
-    const n = rows*cols;
-    setSeeds(prev => Array.from({length:n}, (_,i)=> prev[i] ?? (42 + i*7)));
-    setRunning(prev => Array.from({length:n}, (_,i)=> prev[i] ?? true));
-  }, [rows, cols]);
+  const COUNT = 3;
+  const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> 42 + i*7));
+  const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
 
   const startAll = () => setRunning(arr => arr.map(()=>true));
   const pauseAll = () => setRunning(arr => arr.map(()=>false));
@@ -225,34 +225,48 @@ export default function App(){
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={pauseAll}>Pausar todo</button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={resetAllSoft}>Reset 𝓣/R</button>
           <button className="px-3 py-1 rounded-xl bg-indigo-700 hover:bg-indigo-600" onClick={resetAllHard}>Big Bang ♻︎</button>
-          <button className={"px-3 py-1 rounded-xl "+(showAxioms?"bg-emerald-700":"bg-slate-800")} onClick={()=>setShowAxioms(s=>!s)} title="Atajo: A">ⓘ Axiomas (A)</button>
+          <button
+            className={`px-3 py-1 rounded-xl ${showAxioms ? "bg-emerald-700" : "bg-slate-800"}`}
+            onClick={()=>setShowAxioms(s=>!s)}
+            title="Atajo: A"
+          >
+            ⓘ Axiomas (A)
+          </button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={()=>exportGridPng("grid")}>Exportar captura</button>
         </div>
       </header>
 
-      <div className="flex items-center gap-3 mb-3 text-sm">
-        <label>Grid:</label>
-        <select value={rows} onChange={e=>setRows(parseInt(e.target.value))} className="bg-slate-900 rounded-md px-2 py-1">
-          {[1,2,3].map(n=><option key={n} value={n}>{n} filas</option>)}
-        </select>
-        <select value={cols} onChange={e=>setCols(parseInt(e.target.value))} className="bg-slate-900 rounded-md px-2 py-1">
-          {[1,2,3,4].map(n=><option key={n} value={n}>{n} cols</option>)}
-        </select>
-        {/* Paleta fija: se cicla automáticamente entre cámaras */}
-      </div>
-
-      <div id="grid" className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        {seeds.map((s, i) => (
-          <UniverseCell
-            key={i+"-"+s}
-            seed={s}
-            running={running[i]}
-            onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
-            onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
-            onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
-            paletteIndex={i % PALETTES.length}
-          />
-        ))}
+      <div id="grid">
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          {seeds.map((s, i) => (
+            <UniverseCell
+              key={"v"+i+"-"+s}
+              seed={s}
+              running={running[i]}
+              onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
+              onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
+              onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
+              paletteIndex={i % PALETTES.length}
+              mode="visual"
+              label={`Cámara Φ-${i}`}
+            />
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          {seeds.map((s, i) => (
+            <UniverseCell
+              key={"p"+i+"-"+s}
+              seed={s}
+              running={running[i]}
+              onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
+              onResetSoft={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? v : v))}
+              onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
+              paletteIndex={i % PALETTES.length}
+              mode="plot"
+              label={`Gráfica ${i}`}
+            />
+          ))}
+        </div>
       </div>
 
       <AxiomOverlay enabled={showAxioms} />
