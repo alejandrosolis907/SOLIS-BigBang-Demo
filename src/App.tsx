@@ -40,6 +40,10 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
   const [history, setHistory] = useState<number[]>([]);
   const [timeline, setTimeline] = useState<{t:number; score:number}[]>([]);
   const [t, setT] = useState(0);
+  const [freqHz, setFreqHz] = useState(0);
+  const prevRef = useRef(0);
+  const trendRef = useRef(0);
+  const lastPeakRef = useRef<number | null>(null);
 
   useEffect(() => {
     setPoss(seededPossibilities(seed, 36));
@@ -47,6 +51,10 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
     setTimeline([]);
     setT(0);
     onHistory?.([]);
+    setFreqHz(0);
+    prevRef.current = 0;
+    trendRef.current = 0;
+    lastPeakRef.current = null;
   }, [seed, onHistory]);
 
   useEffect(() => {
@@ -84,11 +92,28 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
       });
 
       // capture the average energy for the analytic graph (R)
+      const WINDOW = 30;
       setHistory(arr => {
-        const next = [...arr.slice(-99), avg];
+        const next = [...arr.slice(-(WINDOW - 1)), avg];
         onHistory?.(next);
         return next;
       });
+
+      // frequency estimation via peak detection
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const prev = prevRef.current;
+      const trend = avg > prev ? 1 : -1;
+      if (trendRef.current === 1 && trend === -1) {
+        if (lastPeakRef.current != null) {
+          const periodSec = (now - lastPeakRef.current) / 1000;
+          if (periodSec > 0) {
+            setFreqHz(1 / periodSec);
+          }
+        }
+        lastPeakRef.current = now;
+      }
+      prevRef.current = avg;
+      trendRef.current = trend;
 
       // ε events sampled from resonant energy peaks
       if (Math.random() < 0.06) {
@@ -117,6 +142,7 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
       {mode !== "visual" && (
         <div className={mode === "both" ? "mt-3" : ""}>
           <LinePlot data={history} />
+          <div className="text-xs mt-1">f ≈ {freqHz.toFixed(2)} Hz</div>
         </div>
       )}
       {mode !== "visual" && (

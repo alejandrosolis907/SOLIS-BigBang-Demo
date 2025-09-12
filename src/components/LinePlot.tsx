@@ -17,8 +17,11 @@ export function LinePlot({
       />
     );
   }
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
   const points = data
-    .map((v, i) => `${(i / (data.length - 1)) * 100},${(1 - v) * 100}`)
+    .map((v, i) => `${(i / (data.length - 1)) * 100},${(1 - (v - min) / range) * 100}`)
     .join(" ");
   return (
     <svg
