@@ -1,6 +1,5 @@
 
 import React, { useEffect, useRef, useState } from "react";
-import { AXIOM_LABELS, MICRO_LEGENDS } from "./axioms";
 import { exportGridPng } from "./utils/capture";
 import { LinePlot } from "./components/LinePlot";
 
@@ -86,7 +85,7 @@ function PhiCanvas({ possibilities, timeline, t, paletteIndex }:{
 }
 
 // ======= One universe cell with visual + plot =======
-function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, paletteIndex, mode = "both", label }:{
+function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, paletteIndex, mode = "both", label, onHistory }:{
   seed: number;
   running: boolean;
   onToggle: () => void;
@@ -95,6 +94,7 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
   paletteIndex: number;
   mode?: "visual" | "plot" | "both";
   label?: string;
+  onHistory?: (hist: number[]) => void;
 }){
   const [t, setT] = useState(0);
   const [poss, setPoss] = useState(seededPossibilities(seed, 36));
@@ -105,8 +105,9 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
     setPoss(seededPossibilities(seed, 36));
     setTimeline([]);
     setHistory([]);
+    onHistory?.([]);
     setT(0);
-  }, [seed]);
+  }, [seed, onHistory]);
 
   useEffect(() => {
     if (!running) return;
@@ -119,7 +120,11 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
       const base = poss.reduce((a,p)=>a+p.energy,0)/poss.length;
       const osc = 0.3*Math.sin(tt*0.05) + 0.2*Math.sin(tt*0.013);
       const val = Math.min(1, Math.max(0, base + osc));
-      setHistory(arr => [...arr.slice(-99), val]);
+      setHistory(arr => {
+        const next = [...arr.slice(-99), val];
+        onHistory?.(next);
+        return next;
+      });
       if (Math.random() < 0.06) {
         const id = poss[Math.floor(Math.random()*poss.length)].id;
         const score = Math.random();
@@ -159,42 +164,7 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, palet
   );
 }
 
-// ======= Overlay of axioms =======
-function AxiomOverlay({ enabled }:{ enabled: boolean }){
-  const [hoverKey, setHoverKey] = useState<string | null>(null);
-  if (!enabled) return null;
-  return (
-    <div className="axiom-overlay">
-      {/* badges placed in meaningful positions */}
-      {[
-        {key:"Ω", x:"6%", y:"8%"},
-        {key:"Φ", x:"18%", y:"20%"},
-        {key:"𝓛(x)", x:"78%", y:"22%"},
-        {key:"ℜ", x:"72%", y:"52%"},
-        {key:"ε", x:"44%", y:"58%"},
-        {key:"R", x:"50%", y:"82%"},
-        {key:"𝓣", x:"8%", y:"90%"}
-      ].map(({key,x,y}) => (
-        <div
-          key={key}
-          className="axiom-badge"
-          style={{ left: x, top: y, opacity: 0.3 }}
-          onMouseEnter={() => setHoverKey(key)}
-          onMouseLeave={() => setHoverKey(null)}
-        >
-          {key} — {MICRO_LEGENDS[key as keyof typeof MICRO_LEGENDS]}
-          {hoverKey===key && (
-            <div className="tooltip">
-              <strong>{key}</strong>: {AXIOM_LABELS.find(a=>a.key===key)?.tip}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ======= Main App: Grid + global controls + overlay toggle =======
+// ======= Main App: Grid + global controls =======
 export default function App(){
   const COUNT = 3;
   const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> 42 + i*7));
@@ -205,16 +175,25 @@ export default function App(){
   const resetAllSoft = () => setSeeds(prev => [...prev]); // triggers soft reset via key change in UniverseCell
   const resetAllHard = () => setSeeds(prev => prev.map((_,i)=> Math.floor(Math.random()*100000)));
 
-  const [showAxioms, setShowAxioms] = useState(false);
+  const historiesRef = useRef<number[][]>(Array.from({length: COUNT}, ()=>[]));
 
-  // keyboard shortcut A
-  useEffect(()=>{
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase()==="a") setShowAxioms(s => !s);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  const exportExcel = () => {
+    const rows: string[] = [];
+    historiesRef.current.forEach((hist, i) => {
+      rows.push(`Grafica ${i}`);
+      rows.push("t,value");
+      hist.forEach((v, idx) => rows.push(`${idx},${v}`));
+      rows.push("");
+    });
+    const csv = rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "graficas.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
@@ -225,13 +204,7 @@ export default function App(){
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={pauseAll}>Pausar todo</button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={resetAllSoft}>Reset 𝓣/R</button>
           <button className="px-3 py-1 rounded-xl bg-indigo-700 hover:bg-indigo-600" onClick={resetAllHard}>Big Bang ♻︎</button>
-          <button
-            className={`px-3 py-1 rounded-xl ${showAxioms ? "bg-emerald-700" : "bg-slate-800"}`}
-            onClick={()=>setShowAxioms(s=>!s)}
-            title="Atajo: A"
-          >
-            ⓘ Axiomas (A)
-          </button>
+          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={exportExcel}>Exportar CSV</button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={()=>exportGridPng("grid")}>Exportar captura</button>
         </div>
       </header>
@@ -264,12 +237,11 @@ export default function App(){
               paletteIndex={i % PALETTES.length}
               mode="plot"
               label={`Gráfica ${i}`}
+              onHistory={arr => { historiesRef.current[i] = arr; }}
             />
           ))}
         </div>
       </div>
-
-      <AxiomOverlay enabled={showAxioms} />
     </div>
   );
 }
