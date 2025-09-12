@@ -45,9 +45,10 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   const [timeline, setTimeline] = useState<{t:number; score:number}[]>([]);
   const [t, setT] = useState(0);
   const [freqHz, setFreqHz] = useState(0);
-  const prevRef = useRef(0);
-  const trendRef = useRef(0);
-  const lastPeakRef = useRef<number | null>(null);
+  // keep a short rolling buffer to estimate frequency from energy oscillations
+  const prev1Ref = useRef<number | null>(null);
+  const prev2Ref = useRef<number | null>(null);
+  const lastPeakTimeRef = useRef<number | null>(null);
   const onHistoryRef = useRef(onHistory);
 
   useEffect(() => {
@@ -61,9 +62,9 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
     setT(0);
     onHistoryRef.current?.([]);
     setFreqHz(0);
-    prevRef.current = 0;
-    trendRef.current = 0;
-    lastPeakRef.current = null;
+    prev1Ref.current = null;
+    prev2Ref.current = null;
+    lastPeakTimeRef.current = null;
   }, [seed]);
 
   useEffect(() => {
@@ -115,21 +116,24 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
         return next;
       });
 
-      // frequency estimation via peak detection
-      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-      const prev = prevRef.current;
-      const trend = avg > prev ? 1 : -1;
-      if (trendRef.current === 1 && trend === -1) {
-        if (lastPeakRef.current != null) {
-          const periodSec = (now - lastPeakRef.current) / 1000;
+      // frequency estimation using local maxima in the energy signal
+      if (
+        prev2Ref.current !== null &&
+        prev1Ref.current !== null &&
+        prev1Ref.current > prev2Ref.current &&
+        prev1Ref.current > avg
+      ) {
+        const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+        if (lastPeakTimeRef.current != null) {
+          const periodSec = (now - lastPeakTimeRef.current) / 1000;
           if (periodSec > 0) {
             setFreqHz(1 / periodSec);
           }
         }
-        lastPeakRef.current = now;
+        lastPeakTimeRef.current = now;
       }
-      prevRef.current = avg;
-      trendRef.current = trend;
+      prev2Ref.current = prev1Ref.current;
+      prev1Ref.current = avg;
 
       // ε events sampled from resonant energy peaks
       if (Math.random() < 0.06) {
