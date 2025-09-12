@@ -55,24 +55,37 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
     let tt = t;
     const loop = () => {
       tt++;
-      // oscillating metric for plot
-      const base = poss.reduce((a,p)=>a+p.energy,0)/poss.length;
-      const osc = 0.3*Math.sin(tt*0.05) + 0.2*Math.sin(tt*0.013);
-      const val = Math.min(1, Math.max(0, base + osc));
+
+      // evolve the possibility field with small random walks
+      let avg = 0;
+      setPoss(prev => {
+        const next = prev.map(p => {
+          const energy = Math.min(1, Math.max(0, p.energy + 0.01 * (Math.random() - 0.5)));
+          const symmetry = Math.min(1, Math.max(0, p.symmetry + 0.01 * (Math.random() - 0.5)));
+          const curvature = Math.max(-1, Math.min(1, p.curvature + 0.02 * (Math.random() - 0.5)));
+          return { ...p, energy, symmetry, curvature };
+        });
+        avg = next.reduce((a, p) => a + p.energy, 0) / next.length;
+        return next;
+      });
+
+      // capture the average energy for the analytic graph
       setHistory(arr => {
-        const next = [...arr.slice(-99), val];
+        const next = [...arr.slice(-99), avg];
         onHistory?.(next);
         return next;
       });
+
       if (Math.random() < 0.06) {
-        setTimeline(arr => [...arr.slice(-63), { t: tt, score: Math.random() }]);
+        setTimeline(arr => [...arr.slice(-63), { t: tt, score: avg }]);
       }
+
       setT(tt);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, poss, onHistory]);
+  }, [running, onHistory]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
