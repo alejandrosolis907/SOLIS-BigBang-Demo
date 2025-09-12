@@ -54,7 +54,7 @@ export function GlobalParamsPanel({
         <div className="text-xs mt-1">{speed.toFixed(1)}x</div>
       </label>
       <label className="block text-sm">
-        Balance Ω/ℂ
+        Balance Ω/Φ
         <input
           type="range"
           min={-1}
