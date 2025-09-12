@@ -114,7 +114,8 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
       setResonance(res);
 
       // capture the average energy for the analytic graph (R)
-      const WINDOW = 30;
+      // show a broader historical panorama of the energy signal
+      const WINDOW = 60;
       setHistory(arr => {
         const next = [...arr.slice(-(WINDOW - 1)), avg];
         onHistoryRef.current?.(next);

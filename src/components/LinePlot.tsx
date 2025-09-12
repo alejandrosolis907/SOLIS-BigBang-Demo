@@ -17,12 +17,12 @@ export function LinePlot({
       />
     );
   }
-  // determine dynamic range and extend it by 40% so the waveform fits with
+  // determine dynamic range and extend it by 60% so the waveform fits with
   // additional headroom when zoomed out
   const min = Math.min(...data);
   const max = Math.max(...data);
   const mid = (min + max) / 2;
-  const half = ((max - min) / 2 || 0.5) * 1.4; // 40% zoom-out
+  const half = ((max - min) / 2 || 0.5) * 1.6; // 60% zoom-out
   const lo = mid - half;
   const hi = mid + half;
   const range = hi - lo || 1;
