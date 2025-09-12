@@ -55,6 +55,7 @@ export function PhiCanvas({
     ctx.shadowBlur = 0;
     for (const e of timeline.slice(-8)) {
       const phase = (t - e.t) * 0.05;
+      if (phase < 0) continue; // ignore events from future frames after resume
       const alpha = Math.max(0, 0.6 - phase * 0.08);
       if (alpha <= 0) continue;
       ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
@@ -62,7 +63,8 @@ export function PhiCanvas({
       const cx = (e.score * 997) % W;
       const cy = (e.score * 661) % H;
       ctx.beginPath();
-      ctx.arc(cx, cy, 12 + phase * 12, 0, Math.PI * 2);
+      const radius = 12 + phase * 12;
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
   }, [possibilities, timeline, t, paletteIndex]);

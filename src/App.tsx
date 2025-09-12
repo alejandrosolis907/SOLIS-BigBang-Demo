@@ -51,7 +51,8 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
   useEffect(() => {
     if (!running) return;
     let raf = 0;
-    let tt = 0;
+    // continue from existing timeline so pause/resume doesn't reset phases
+    let tt = t;
     const loop = () => {
       tt++;
       // oscillating metric for plot
