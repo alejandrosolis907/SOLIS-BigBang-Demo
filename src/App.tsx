@@ -47,7 +47,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   const [t, setT] = useState(0);
   const [freqHz, setFreqHz] = useState(0);
   const [resonance, setResonance] = useState(0);
-  // keep a short rolling buffer to estimate frequency from energy oscillations
+  // keep a short rolling buffer to estimate frequency from the first particle's energy oscillations
   const prev1Ref = useRef<number | null>(null);
   const prev2Ref = useRef<number | null>(null);
   const lastPeakTimeRef = useRef<number | null>(null);
@@ -92,6 +92,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
 
       let avg = 0;
       let res = 0;
+      let energyFirst = 0;
       setPoss(prev => {
         const next = prev.map((p, i) => {
           const noise = 0.1 * (Math.random() - 0.5);
@@ -109,6 +110,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
         });
         avg = next.reduce((a, p) => a + p.energy, 0) / next.length;
         res = next.reduce((a, p) => a + p.energy * p.symmetry, 0) / next.length;
+        energyFirst = next[0]?.energy ?? 0;
         return next;
       });
       setResonance(res);
@@ -122,12 +124,12 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
         return next;
       });
 
-      // frequency estimation using local maxima in the energy signal
+      // frequency estimation using local maxima of the first particle's energy
       if (
         prev2Ref.current !== null &&
         prev1Ref.current !== null &&
         prev1Ref.current > prev2Ref.current &&
-        prev1Ref.current > avg
+        prev1Ref.current > energyFirst
       ) {
         const now = typeof performance !== "undefined" ? performance.now() : Date.now();
         if (lastPeakTimeRef.current != null) {
@@ -139,7 +141,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
         lastPeakTimeRef.current = now;
       }
       prev2Ref.current = prev1Ref.current;
-      prev1Ref.current = avg;
+      prev1Ref.current = energyFirst;
 
       // ε events sampled from resonant energy peaks
       if (Math.random() < 0.06) {
