@@ -19,7 +19,8 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
   const rnd = mulberry32(seed);
   const arr: Possibility[] = [];
   for (let i = 0; i < n; i++) {
-    arr.push({ id: `p${i}`, energy: rnd(), symmetry: rnd(), curvature: -1 + rnd() * 2 });
+    // start near an Ω-like vacuum: almost no energy, neutral symmetry and flat curvature
+    arr.push({ id: `p${i}`, energy: rnd() * 0.05, symmetry: 0.5, curvature: 0 });
   }
   return arr;
 }
@@ -56,26 +57,40 @@ function UniverseCell({ seed, running, onToggle, onResetSoft, onResetHard, mode 
     const loop = () => {
       tt++;
 
-      // evolve the possibility field with small random walks
+      // Metaontological "Big Bang": rapid expansion followed by cooling
+      // expansion term models Φ emergiendo desde Ω; cooling reflects fricción ontológica
+      const expansion = 1 - Math.exp(-tt * 0.02);
+      const cooling = Math.exp(-tt * 0.0005);
+      const base = expansion * cooling;
+
       let avg = 0;
       setPoss(prev => {
-        const next = prev.map(p => {
-          const energy = Math.min(1, Math.max(0, p.energy + 0.01 * (Math.random() - 0.5)));
-          const symmetry = Math.min(1, Math.max(0, p.symmetry + 0.01 * (Math.random() - 0.5)));
-          const curvature = Math.max(-1, Math.min(1, p.curvature + 0.02 * (Math.random() - 0.5)));
+        const next = prev.map((p, i) => {
+          const noise = 0.1 * (Math.random() - 0.5);
+          const oscill = 0.15 * Math.sin(tt * 0.05 + i);
+          const energy = Math.min(1, Math.max(0, base + oscill + noise));
+          const symmetry = Math.min(
+            1,
+            Math.max(0, 0.5 + 0.5 * Math.cos(tt * 0.03 + i) * base + 0.1 * (Math.random() - 0.5))
+          );
+          const curvature = Math.max(
+            -1,
+            Math.min(1, p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) + 0.05 * (Math.random() - 0.5))
+          );
           return { ...p, energy, symmetry, curvature };
         });
         avg = next.reduce((a, p) => a + p.energy, 0) / next.length;
         return next;
       });
 
-      // capture the average energy for the analytic graph
+      // capture the average energy for the analytic graph (R)
       setHistory(arr => {
         const next = [...arr.slice(-99), avg];
         onHistory?.(next);
         return next;
       });
 
+      // ε events sampled from resonant energy peaks
       if (Math.random() < 0.06) {
         setTimeline(arr => [...arr.slice(-63), { t: tt, score: avg }]);
       }
