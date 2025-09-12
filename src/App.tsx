@@ -29,10 +29,13 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
 }
 
 // ======= One universe cell with visual + plot =======
-function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal }:{
+function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal }:{
   seed: number;
   running: boolean;
   speed: number;
+  grid: number;
+  balance: number;
+  kernel: number[];
   onToggle: () => void;
   onResetSoft: () => void;
   onResetHard: () => void;
@@ -41,7 +44,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   onHistory?: (hist: number[]) => void;
   resetSignal: number;
 }){
-  const [poss, setPoss] = useState(seededPossibilities(seed, 36));
+  const [poss, setPoss] = useState(seededPossibilities(seed, grid));
   const [history, setHistory] = useState<number[]>([]);
   const [timeline, setTimeline] = useState<{t:number; score:number}[]>([]);
   const [t, setT] = useState(0);
@@ -58,7 +61,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
   }, [onHistory]);
 
   const reset = React.useCallback(() => {
-    setPoss(seededPossibilities(seed, 36));
+    setPoss(seededPossibilities(seed, grid));
     setHistory([]);
     setTimeline([]);
     setT(0);
@@ -67,7 +70,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
     prev1Ref.current = null;
     prev2Ref.current = null;
     lastPeakTickRef.current = null;
-  }, [seed]);
+  }, [seed, grid]);
 
   useEffect(() => {
     reset();
@@ -102,17 +105,30 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
       let res = 0;
       let energyFirst = 0;
       setPoss(prev => {
+        const center = kernel[4] ?? 1;
+        const ksum = kernel.reduce((a, b) => a + b, 0) || 1;
         const next = prev.map((p, i) => {
           const noise = 0.1 * speed * (Math.random() - 0.5);
           const oscill = 0.15 * Math.sin(tt * 0.05 + i) * speed;
-          const energy = Math.min(1, Math.max(0, base + oscill + noise));
+          const energy = Math.min(
+            1,
+            Math.max(0, base * center + oscill + noise + balance * 0.5)
+          );
           const symmetry = Math.min(
             1,
-            Math.max(0, 0.5 + 0.5 * Math.cos(tt * 0.03 + i) * base + 0.1 * speed * (Math.random() - 0.5))
+            Math.max(
+              0,
+              0.5 + 0.5 * Math.cos(tt * 0.03 + i) * base * (ksum / 9) +
+                balance * 0.5 + 0.1 * speed * (Math.random() - 0.5)
+            )
           );
           const curvature = Math.max(
             -1,
-            Math.min(1, p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) * speed + 0.05 * speed * (Math.random() - 0.5))
+            Math.min(
+              1,
+              p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) * speed +
+                (center - 1) * 0.1 + 0.05 * speed * (Math.random() - 0.5)
+            )
           );
           const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
           return { ...p, energy, symmetry, curvature, phase };
@@ -163,7 +179,7 @@ function UniverseCell({ seed, running, speed, onToggle, onResetSoft, onResetHard
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, speed, onHistory]);
+  }, [running, speed, onHistory, balance, kernel]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
@@ -284,6 +300,9 @@ export default function App(){
                   seed={s}
                   running={running[i]}
                   speed={speed}
+                  grid={gridSize}
+                  balance={balance}
+                  kernel={kernel}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
                   onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
                   onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
@@ -300,6 +319,9 @@ export default function App(){
                   seed={s}
                   running={running[i]}
                   speed={speed}
+                  grid={gridSize}
+                  balance={balance}
+                  kernel={kernel}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
                   onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
                   onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
