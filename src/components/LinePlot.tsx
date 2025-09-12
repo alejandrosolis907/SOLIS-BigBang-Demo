@@ -17,11 +17,17 @@ export function LinePlot({
       />
     );
   }
+  // determine dynamic range and extend it by 40% so the waveform fits with
+  // additional headroom when zoomed out
   const min = Math.min(...data);
   const max = Math.max(...data);
-  const range = max - min || 1;
+  const mid = (min + max) / 2;
+  const half = ((max - min) / 2 || 0.5) * 1.4; // 40% zoom-out
+  const lo = mid - half;
+  const hi = mid + half;
+  const range = hi - lo || 1;
   const points = data
-    .map((v, i) => `${(i / (data.length - 1)) * 100},${(1 - (v - min) / range) * 100}`)
+    .map((v, i) => `${(i / (data.length - 1)) * 100},${(1 - (v - lo) / range) * 100}`)
     .join(" ");
   return (
     <svg
