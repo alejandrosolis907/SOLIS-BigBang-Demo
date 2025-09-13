@@ -29,7 +29,7 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
 }
 
 // ======= One universe cell with visual + plot =======
-function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal }:{
+function UniverseCell({ seed, running, speed, grid, balance, kernel, mu, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal }:{
   seed: number;
   running: boolean;
   speed: number;
