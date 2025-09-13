@@ -18,6 +18,8 @@ export function useSolisModel() {
   // métricas delta (antes/después de mover 𝓛)
   const lastMetricsRef = useRef({ entropy: 0, density: 0, clusters: 0 });
   const [metricsDelta, setMetricsDelta] = useState({ dEntropy: 0, dDensity: 0, dClusters: 0 });
+  // 𝓣: tasa de cambio de R respecto a 𝓛
+  const [timeField, setTimeField] = useState<number>(0);
   // log de eventos ε
   const [eventsLog, setEventsLog] = useState<EventEpsilon[]>([]);
 
@@ -39,18 +41,20 @@ export function useSolisModel() {
 
     // métricas y Δ (∂R/∂𝓛 estimado por diferencia)
     const m = computeMetrics(res, theta);
-    setMetricsDelta({
-      dEntropy: m.entropy - lastMetricsRef.current.entropy,
-      dDensity: m.density - lastMetricsRef.current.density,
-      dClusters: m.clusters - lastMetricsRef.current.clusters,
-    });
+    const dEntropy = m.entropy - lastMetricsRef.current.entropy;
+    const dDensity = m.density - lastMetricsRef.current.density;
+    const dClusters = m.clusters - lastMetricsRef.current.clusters;
+    setMetricsDelta({ dEntropy, dDensity, dClusters });
+    const tField = Math.abs(dEntropy) + Math.abs(dDensity) + Math.abs(dClusters);
+    setTimeField(tField);
     lastMetricsRef.current = m;
 
     // eventos ε (dispara para las partículas que cruzan θ)
     const events: EventEpsilon[] = [];
+    const effectiveTheta = theta * (1 + timeField);
     P.forEach((p, i) => {
       const r = res[i];
-      if (r >= theta) {
+      if (r >= effectiveTheta) {
         events.push({ t: timeRef.current, id: p.id, r, L: [...L] });
       }
     });
@@ -62,12 +66,14 @@ export function useSolisModel() {
   const resetMetrics = useCallback(() => {
     lastMetricsRef.current = { entropy: 0, density: 0, clusters: 0 };
     setMetricsDelta({ dEntropy: 0, dDensity: 0, dClusters: 0 });
+    setTimeField(0);
   }, []);
 
   return {
     L, setL, theta, setTheta,
     resonanceNow,
     metricsDelta, resetMetrics,
+    timeField,
     eventsLog,
     pushParticles, tick
   };
