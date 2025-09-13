@@ -29,7 +29,7 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
 }
 
 // ======= One universe cell with visual + plot =======
-function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal, onLatticeChange }:{
+function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal }:{
   seed: number;
   running: boolean;
   speed: number;
@@ -43,14 +43,13 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
   label?: string;
   onHistory?: (hist: number[]) => void;
   resetSignal: number;
-  onLatticeChange?: (k: number[]) => void;
 }){
   const [snapshot, setSnapshot] = useState<PhiSnapshot>(() => ({
     t: 0,
     energy: 0,
     symmetry: 0.5,
     curvature: 0,
-    possibilities: seededPossibilities(seed, grid * grid),
+    possibilities: seededPossibilities(seed, grid),
     timeline: [],
   }));
   const snapshotRef = useRef(snapshot);
@@ -60,9 +59,6 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
   const prev1Ref = useRef<number | null>(null);
   const prev2Ref = useRef<number | null>(null);
   const lastPeakTickRef = useRef<number | null>(null);
-  const lastKernelUpdateRef = useRef(0);
-  const prevResRef = useRef(0);
-  const resThreshold = 0.7;
 
   const reset = React.useCallback(() => {
     const snap: PhiSnapshot = {
@@ -70,7 +66,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
       energy: 0,
       symmetry: 0.5,
       curvature: 0,
-      possibilities: seededPossibilities(seed, grid * grid),
+      possibilities: seededPossibilities(seed, grid),
       timeline: [],
     };
     snapshotRef.current = snap;
@@ -106,76 +102,45 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
       const cooling = Math.exp(-tt * 0.0005);
       const base = expansion * cooling;
 
+      const center = kernel[4] ?? 1;
       const ksum = kernel.reduce((a, b) => a + b, 0) || 1;
-      const side = grid;
-      const prevPoss = prev.possibilities;
-      const nextPoss: Possibility[] = [];
-      for (let y = 0; y < side; y++) {
-        for (let x = 0; x < side; x++) {
-          const idx = y * side + x;
-          const p = prevPoss[idx];
-          let conv = 0;
-          let wsum = 0;
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const w = kernel[(dy + 1) * 3 + (dx + 1)] ?? 0;
-              const nx = (x + dx + side) % side;
-              const ny = (y + dy + side) % side;
-              const nidx = ny * side + nx;
-              conv += w * prevPoss[nidx].energy;
-              wsum += w;
-            }
-          }
-          const convNorm = wsum ? conv / wsum : 0;
-          const noise = 0.1 * speed * (Math.random() - 0.5);
-          const oscill = 0.15 * Math.sin(tt * 0.05 + idx) * speed;
-          let energy = base * convNorm + oscill + noise + balance * 0.5;
-          const clamped = Math.min(1, Math.max(0, energy));
-          const gradient = Math.abs(convNorm - p.energy);
-          const friction = 0.01 * wsum * (1 + prevResRef.current) * gradient;
-          energy = Math.max(0, Math.min(1, clamped * (1 - friction)));
-          const symmetry = Math.min(
+      let energyFirst = 0;
+      const nextPoss = prev.possibilities.map((p, i) => {
+        const noise = 0.1 * speed * (Math.random() - 0.5);
+        const oscill = 0.15 * Math.sin(tt * 0.05 + i) * speed;
+        const energy = Math.min(
+          1,
+          Math.max(0, base * center + oscill + noise + balance * 0.5)
+        );
+        const symmetry = Math.min(
+          1,
+          Math.max(
+            0,
+            0.5 + 0.5 * Math.cos(tt * 0.03 + i) * base * (ksum / 9) +
+              balance * 0.5 + 0.1 * speed * (Math.random() - 0.5)
+          )
+        );
+        const curvature = Math.max(
+          -1,
+          Math.min(
             1,
-            Math.max(
-              0,
-              0.5 + 0.5 * Math.cos(tt * 0.03 + idx) * convNorm +
-                balance * 0.5 + 0.1 * speed * (Math.random() - 0.5)
-            )
-          );
-          const curvature = Math.max(
-            -1,
-            Math.min(
-              1,
-              p.curvature * 0.98 +
-                0.1 * Math.sin(tt * 0.04 + idx) * speed +
-                (convNorm - 1) * 0.1 +
-                0.05 * speed * (Math.random() - 0.5)
-            )
-          );
-          const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + idx);
-          nextPoss[idx] = { ...p, energy, symmetry, curvature, phase };
-        }
-      }
+            p.curvature * 0.98 + 0.1 * Math.sin(tt * 0.04 + i) * speed +
+              (center - 1) * 0.1 + 0.05 * speed * (Math.random() - 0.5)
+          )
+        );
+        const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
+        return { ...p, energy, symmetry, curvature, phase };
+      });
       const avg = nextPoss.reduce((a, p) => a + p.energy, 0) / nextPoss.length;
       const avgSym = nextPoss.reduce((a, p) => a + p.symmetry, 0) / nextPoss.length;
       const avgCurv = nextPoss.reduce((a, p) => a + p.curvature, 0) / nextPoss.length;
-      let res =
-        nextPoss.reduce(
-          (a, p) =>
-            a +
-            p.energy *
-              p.symmetry *
-              (1 - Math.abs(p.curvature)) *
-              (0.5 + 0.5 * Math.cos(tt * 0.02 + p.phase)),
-          0
-        ) / nextPoss.length;
-      res = Math.max(0, Math.min(1, res));
+      const res = nextPoss.reduce((a, p) => a + p.energy * p.symmetry, 0) / nextPoss.length;
+      energyFirst = nextPoss[0]?.energy ?? 0;
 
       let timeline = prev.timeline;
-      if (res >= resThreshold && prevResRef.current < resThreshold) {
+      if (Math.random() < 0.06 * speed) {
         timeline = [...timeline.slice(-63), { t: tt, score: avg }];
       }
-      prevResRef.current = res;
 
       const snap: PhiSnapshot = { t: tt, energy: avg, symmetry: avgSym, curvature: avgCurv, possibilities: nextPoss, timeline };
       snapshotRef.current = snap;
@@ -186,7 +151,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
         prev2Ref.current !== null &&
         prev1Ref.current !== null &&
         prev1Ref.current > prev2Ref.current &&
-        prev1Ref.current > avg
+        prev1Ref.current > energyFirst
       ) {
         if (lastPeakTickRef.current != null) {
           const periodTicks = tt - lastPeakTickRef.current;
@@ -197,16 +162,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
         lastPeakTickRef.current = tt;
       }
       prev2Ref.current = prev1Ref.current;
-      prev1Ref.current = avg;
-
-      if (onLatticeChange && tt - lastKernelUpdateRef.current > 200) {
-        const delta = (res - 0.5) * 0.1;
-        let newKernel = kernel.map((v) => v + delta * (v / ksum));
-        const newSum = newKernel.reduce((a, b) => a + b, 0) || 1;
-        newKernel = newKernel.map((v) => v * (ksum / newSum));
-        onLatticeChange(newKernel);
-        lastKernelUpdateRef.current = tt;
-      }
+      prev1Ref.current = energyFirst;
 
       if (runningRef.current) {
         raf = requestAnimationFrame(loop);
@@ -342,7 +298,6 @@ export default function App(){
                   mode="visual"
                   label={`Cámara Φ-${i + 1}`}
                   resetSignal={resetSignals[i]}
-                  onLatticeChange={setKernel}
                 />
               ))}
             </div>
@@ -363,7 +318,6 @@ export default function App(){
                   label={`Gráfica ${i + 1}`}
                   onHistory={arr => { historiesRef.current[i] = arr; }}
                   resetSignal={resetSignals[i]}
-                  onLatticeChange={setKernel}
                 />
               ))}
             </div>
