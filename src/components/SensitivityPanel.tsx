@@ -5,11 +5,11 @@ type Props = {
   setL: (v: number[]) => void;
   theta: number;
   setTheta: (v: number) => void;
-  metricsDelta: { dEntropy: number; dDensity: number; dClusters: number };
-  onResetMetrics?: () => void;
+  timeField: { dEntropy: number; dDensity: number; dClusters: number };
+  onResetTime?: () => void;
 };
 
-export function SensitivityPanel({ L, setL, theta, setTheta, metricsDelta, onResetMetrics }: Props) {
+export function SensitivityPanel({ L, setL, theta, setTheta, timeField, onResetTime }: Props) {
   const setIdx = (i: number, val: number) => {
     const next = [...L];
     next[i] = val;
@@ -35,11 +35,11 @@ export function SensitivityPanel({ L, setL, theta, setTheta, metricsDelta, onRes
         <code>{theta.toFixed(2)}</code>
       </div>
       <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8}}>
-        <MiniStat label="Δ Entropía" value={metricsDelta.dEntropy} />
-        <MiniStat label="Δ Densidad" value={metricsDelta.dDensity} />
-        <MiniStat label="Δ Clusters" value={metricsDelta.dClusters} />
+        <MiniStat label="Δ Entropía" value={timeField.dEntropy} />
+        <MiniStat label="Δ Densidad" value={timeField.dDensity} />
+        <MiniStat label="Δ Clusters" value={timeField.dClusters} />
       </div>
-      <button onClick={onResetMetrics} style={{justifySelf:"start", padding:"6px 10px"}}>Reiniciar Δ</button>
+      <button onClick={onResetTime} style={{justifySelf:"start", padding:"6px 10px"}}>Reiniciar Δ</button>
     </div>
   );
 }

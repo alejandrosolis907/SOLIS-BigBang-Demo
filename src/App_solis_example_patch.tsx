@@ -10,7 +10,7 @@ import { EventLog } from "./components/EventLog";
 export default function AppSolisExample() {
   const { L, setL, theta, setTheta,
     resonanceNow, pushParticles, tick,
-    metricsDelta, eventsLog, resetMetrics } = useSolisModel();
+    timeField, eventsLog, resetTimeField } = useSolisModel();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -38,8 +38,8 @@ export default function AppSolisExample() {
         setL={setL}
         theta={theta}
         setTheta={setTheta}
-        metricsDelta={metricsDelta}
-        onResetMetrics={resetMetrics}
+        timeField={timeField}
+        onResetTime={resetTimeField}
       />
       <EventLog events={eventsLog} />
       <div style={{opacity:0.7, fontSize:12}}>

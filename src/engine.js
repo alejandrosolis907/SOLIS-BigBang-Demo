@@ -90,10 +90,16 @@ export function tick(state){
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
-  state.shaped = applyLattice(state.phi, grid, preset, customKernel);
-  const stats = resonance(state.phi, state.shaped, state.t);
+
+  // aplicar lattice actual y medir resonancia
+  const shapedPrev = applyLattice(state.phi, grid, preset, customKernel);
+  state.shaped = shapedPrev;
+  const stats = resonance(state.phi, shapedPrev, state.t);
   state.lastRes = stats.res;
-  if(stats.res >= epsilon){
+
+  // umbral modulado por 𝓣 previa
+  const epsEff = epsilon * (1 + (state.timeField ?? 0));
+  if(stats.res >= epsEff){
     state.events++;
     const x = Math.floor(rng.next()*grid);
     const y = Math.floor(rng.next()*grid);
@@ -108,6 +114,13 @@ export function tick(state){
   for(let i=0;i<9;i++){
     blended[i] = KERNEL_SMOOTH[i]*(1-state.kernelMix) + KERNEL_RIGID[i]*state.kernelMix;
   }
+  const shapedNext = applyLattice(state.phi, grid, "custom", blended);
+  let diff = 0;
+  for(let i=0;i<shapedNext.length;i++){
+    diff += Math.abs(shapedNext[i] - shapedPrev[i]);
+  }
+  state.timeField = diff / shapedNext.length;
+  state.shaped = shapedNext;
   state.customKernel = blended;
   state.preset = "custom";
 }

@@ -15,9 +15,9 @@ export function useSolisModel() {
   const [theta, setTheta] = useState<number>(0.8);
   // resonancia actual promedio (para el medidor)
   const [resonanceNow, setResonanceNow] = useState<number>(0);
-  // métricas delta (antes/después de mover 𝓛)
+  // 𝓣≈∂R/∂𝓛 explícito como variación en métricas
   const lastMetricsRef = useRef({ entropy: 0, density: 0, clusters: 0 });
-  const [metricsDelta, setMetricsDelta] = useState({ dEntropy: 0, dDensity: 0, dClusters: 0 });
+  const [timeField, setTimeField] = useState({ dEntropy: 0, dDensity: 0, dClusters: 0 });
   // log de eventos ε
   const [eventsLog, setEventsLog] = useState<EventEpsilon[]>([]);
 
@@ -37,20 +37,22 @@ export function useSolisModel() {
     const avg = res.length ? res.reduce((a,b)=>a+b,0)/res.length : 0;
     setResonanceNow(avg);
 
-    // métricas y Δ (∂R/∂𝓛 estimado por diferencia)
+    // métricas y 𝓣 (∂R/∂𝓛 estimado por diferencia)
     const m = computeMetrics(res, theta);
-    setMetricsDelta({
+    const tField = {
       dEntropy: m.entropy - lastMetricsRef.current.entropy,
       dDensity: m.density - lastMetricsRef.current.density,
       dClusters: m.clusters - lastMetricsRef.current.clusters,
-    });
+    };
+    setTimeField(tField);
     lastMetricsRef.current = m;
 
-    // eventos ε (dispara para las partículas que cruzan θ)
+    // eventos ε modulados por 𝓣
+    const thetaEff = theta * (1 + tField.dEntropy);
     const events: EventEpsilon[] = [];
     P.forEach((p, i) => {
       const r = res[i];
-      if (r >= theta) {
+      if (r >= thetaEff) {
         events.push({ t: timeRef.current, id: p.id, r, L: [...L] });
       }
     });
@@ -59,15 +61,15 @@ export function useSolisModel() {
     }
   }, [L, theta]);
 
-  const resetMetrics = useCallback(() => {
+  const resetTimeField = useCallback(() => {
     lastMetricsRef.current = { entropy: 0, density: 0, clusters: 0 };
-    setMetricsDelta({ dEntropy: 0, dDensity: 0, dClusters: 0 });
+    setTimeField({ dEntropy: 0, dDensity: 0, dClusters: 0 });
   }, []);
 
   return {
     L, setL, theta, setTheta,
     resonanceNow,
-    metricsDelta, resetMetrics,
+    timeField, resetTimeField,
     eventsLog,
     pushParticles, tick
   };
