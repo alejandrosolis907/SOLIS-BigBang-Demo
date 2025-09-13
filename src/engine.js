@@ -76,28 +76,39 @@ export function applyLattice(phi, grid, preset, customKernel, mix=0){
   return shaped;
 }
 
-export function resonance(shaped){
-  const n = shaped.length;
-  let sum=0, sum2=0;
-  for(let i=0;i<n;i++){ const v=shaped[i]; sum+=v; sum2+=v*v; }
-  const mean = sum/n;
-  const varr = Math.max(0, sum2/n - mean*mean);
-  const std = Math.sqrt(varr);
-  const res = (std>0)? mean/std : 0;
-  return {mean, std, res};
+// ℜ: measure affinity between φ and 𝓛 with temporal context 𝓣
+function cosineSim01(a,b){
+  let dot=0,na=0,nb=0;
+  const n=Math.min(a.length,b.length);
+  for(let i=0;i<n;i++){
+    const x=a[i], y=b[i];
+    dot+=x*y; na+=x*x; nb+=y*y;
+  }
+  if(na===0||nb===0) return 0;
+  const raw=dot/Math.sqrt(na*nb); // -1..1
+  return (raw+1)/2; // 0..1
+}
+
+export function resonance(phi, shaped, context=0){
+  const sim = cosineSim01(phi, shaped);
+  // map context (tick count) to 0..1 window via sinusoidal cycle
+  const t = 0.5 + 0.5*Math.sin(context*0.05);
+  const res = sim * t;
+  return {sim, t, res};
 }
 
 export function tick(state){
   const {grid, preset, epsilon, rng, drift, customKernel} = state;
   // remember original preset so feedback can modify and restore
   state.basePreset = state.basePreset ?? preset;
+  state.t = (state.t ?? 0) + 1; // temporal context 𝓣
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
   // 𝓡ₐ: decay lattice mix and apply to kernel selection
   state.kernelMix = (state.kernelMix ?? 0) * 0.97;
   state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
-  const stats = resonance(state.shaped);
+  const stats = resonance(state.phi, state.shaped, state.t);
   state.lastRes = stats.res;
   if(stats.res >= epsilon){
     state.events++;
