@@ -98,15 +98,22 @@ export function resonance(phi, shaped, context=0){
 }
 
 export function tick(state){
-  const {grid, preset, epsilon, rng, drift, customKernel} = state;
+  const {grid, preset, epsilon, rng, drift, mu = 0, customKernel} = state;
   // remember original preset so feedback can modify and restore
   state.basePreset = state.basePreset ?? preset;
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
+    // ontological friction μ attenuates Φ
+    state.phi[i] *= (1 - mu);
   }
   // 𝓡ₐ: decay lattice mix and apply to kernel selection
   state.kernelMix = (state.kernelMix ?? 0) * 0.97;
   state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
+  if(mu>0){
+    for(let i=0;i<state.shaped.length;i++){
+      state.shaped[i] *= (1 - mu);
+    }
+  }
   // 𝓣: derivative of R with respect to lattice variation
   if(state.prevShaped){
     let diffR=0;

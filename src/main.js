@@ -5,6 +5,7 @@ const seedEl = $("#seed");
 const gridEl = $("#grid");
 const speedEl = $("#speed");
 const presetEl = $("#preset");
+const muEl = $("#mu");
 const kpiEvents = $("#kpiEvents");
 const kpiRes = $("#kpiRes");
 const kpiT = $("#kpiT");
@@ -56,7 +57,7 @@ kernelSmooth.addEventListener("click", ()=>{
   if(presetEl.value==="custom") applyGlobalParamChange();
 });
 
-function makeState({seed, grid, preset}){
+function makeState({seed, grid, preset, mu}){
   return {
     seed, grid, preset,
     epsilon: 1.4,
@@ -66,6 +67,7 @@ function makeState({seed, grid, preset}){
     events: 0,
     sparks: [],
     drift: 0.02,
+    mu: mu ?? 0,
     customKernel: customKernel.slice(),
     // Timeline buffers
     timeline: [], // array of snapshots
@@ -78,7 +80,8 @@ let params = {
   seed: Number(seedEl.value),
   grid: Number(gridEl.value),
   preset: presetEl.value,
-  speed: Number(speedEl.value)
+  speed: Number(speedEl.value),
+  mu: Number(muEl?.value ?? 0)
 };
 
 let running = true;
@@ -105,7 +108,8 @@ function applyGlobalParamChange(){
     seed: Number(seedEl.value),
     grid: Number(gridEl.value),
     preset: presetEl.value,
-    speed: Number(speedEl.value)
+    speed: Number(speedEl.value),
+    mu: Number(muEl?.value ?? 0)
   };
   for(let i=0;i<states.length;i++){
     const keepE = states[i].events;
@@ -124,6 +128,7 @@ seedEl.addEventListener("input", applyGlobalParamChange);
 gridEl.addEventListener("input", applyGlobalParamChange);
 presetEl.addEventListener("change", applyGlobalParamChange);
 speedEl.addEventListener("input", applyGlobalParamChange);
+if(muEl) muEl.addEventListener("input", applyGlobalParamChange);
 
 $("#startAll").addEventListener("click", ()=> running=true);
 $("#pauseAll").addEventListener("click", ()=> running=false);
