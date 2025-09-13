@@ -8,6 +8,8 @@
 // R: rendered canvas state
 // 𝓡ₐ: feedback: R nudges 𝓛 over time
 
+import { cosineSim01 } from "./lib/resonance";
+
 const KERNEL_SMOOTH = [
   0.07, 0.12, 0.07,
   0.12, 0.26, 0.12,
@@ -74,24 +76,22 @@ export function applyLattice(phi, grid, preset, customKernel){
   return shaped;
 }
 
-export function resonance(shaped){
-  const n = shaped.length;
-  let sum=0, sum2=0;
-  for(let i=0;i<n;i++){ const v=shaped[i]; sum+=v; sum2+=v*v; }
-  const mean = sum/n;
-  const varr = Math.max(0, sum2/n - mean*mean);
-  const std = Math.sqrt(varr);
-  const res = (std>0)? mean/std : 0;
-  return {mean, std, res};
+export function resonance(phi, shaped, t = 0){
+  // ℜ: medir afinidad entre Φ y 𝓛 mediante similitud coseno y modulación temporal 𝓣
+  const sim = cosineSim01(phi, shaped);
+  const tFactor = 0.5 + 0.5 * Math.sin(t); // contextualiza por 𝓣 en [0,1]
+  const res = sim * tFactor;
+  return { sim, tFactor, res };
 }
 
 export function tick(state){
   const {grid, preset, epsilon, rng, drift, customKernel} = state;
+  state.t = (state.t ?? 0) + 1;
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
   state.shaped = applyLattice(state.phi, grid, preset, customKernel);
-  const stats = resonance(state.shaped);
+  const stats = resonance(state.phi, state.shaped, state.t);
   state.lastRes = stats.res;
   if(stats.res >= epsilon){
     state.events++;
