@@ -85,7 +85,8 @@ export function resonance(phi, shaped, t = 0){
 }
 
 export function tick(state){
-  const {grid, preset, epsilon, rng, drift, customKernel} = state;
+  const {grid, preset, epsilon, rng, drift, customKernel, friction = 0} = state;
+  const f = Math.min(Math.max(friction, 0), 1);
   state.t = (state.t ?? 0) + 1;
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
@@ -117,7 +118,9 @@ export function tick(state){
   const shapedNext = applyLattice(state.phi, grid, "custom", blended);
   let diff = 0;
   for(let i=0;i<shapedNext.length;i++){
-    diff += Math.abs(shapedNext[i] - shapedPrev[i]);
+    const attenuated = shapedNext[i] * (1 - f);
+    diff += Math.abs(attenuated - shapedPrev[i]);
+    shapedNext[i] = attenuated;
   }
   state.timeField = diff / shapedNext.length;
   state.shaped = shapedNext;
