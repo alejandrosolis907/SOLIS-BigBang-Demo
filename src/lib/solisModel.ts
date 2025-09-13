@@ -39,12 +39,16 @@ export function useSolisModel() {
 
     // métricas y 𝓣 (∂R/∂𝓛 estimado por diferencia)
     const m = computeMetrics(res, theta);
-    const tField = {
+    const tFieldRaw = {
       dEntropy: m.entropy - lastMetricsRef.current.entropy,
       dDensity: m.density - lastMetricsRef.current.density,
       dClusters: m.clusters - lastMetricsRef.current.clusters,
     };
-    setTimeField(tField);
+    setTimeField(prev => ({
+      dEntropy: (prev.dEntropy ?? 0) * 0.8 + tFieldRaw.dEntropy * 0.2,
+      dDensity: (prev.dDensity ?? 0) * 0.8 + tFieldRaw.dDensity * 0.2,
+      dClusters: (prev.dClusters ?? 0) * 0.8 + tFieldRaw.dClusters * 0.2,
+    }));
     lastMetricsRef.current = m;
 
     // eventos ε modulados por 𝓣

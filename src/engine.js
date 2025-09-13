@@ -76,27 +76,31 @@ export function applyLattice(phi, grid, preset, customKernel){
   return shaped;
 }
 
-export function resonance(phi, shaped, t = 0){
-  // ℜ: medir afinidad entre Φ y 𝓛 mediante similitud coseno y modulación temporal 𝓣
+export function resonance(phi, shaped, t = 0, prevShaped){
+  // ℜ: afinidad Φ-𝓛 modulada por 𝓣 y memoria espacial
   const sim = cosineSim01(phi, shaped);
   const tFactor = 0.5 + 0.5 * Math.sin(t); // contextualiza por 𝓣 en [0,1]
-  const res = sim * tFactor;
-  return { sim, tFactor, res };
+  const mem = prevShaped ? cosineSim01(shaped, prevShaped) : 1; // resonancia contextual
+  const res = sim * tFactor * mem;
+  return { sim, tFactor, mem, res };
 }
 
 export function tick(state){
   const {grid, preset, epsilon, rng, drift, customKernel, friction = 0} = state;
   const f = Math.min(Math.max(friction, 0), 1);
   state.t = (state.t ?? 0) + 1;
+  if(!state.initialPhi) state.initialPhi = Float32Array.from(state.phi);
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
 
+  const lastShaped = state.shaped;
   // aplicar lattice actual y medir resonancia
   const shapedPrev = applyLattice(state.phi, grid, preset, customKernel);
   state.shaped = shapedPrev;
-  const stats = resonance(state.phi, shapedPrev, state.t);
+  const stats = resonance(state.phi, shapedPrev, state.t, lastShaped);
   state.lastRes = stats.res;
+  state.energy = (state.energy ?? 1) * (1 - f) + stats.res; // costo entrópico
 
   // umbral modulado por 𝓣 previa
   const epsEff = epsilon * (1 + (state.timeField ?? 0));
@@ -108,9 +112,18 @@ export function tick(state){
   }
   state.sparks = state.sparks.map(s=> ({...s, t: Math.max(0, s.t-0.06)})).filter(s=>s.t>0);
 
-  // 𝓡ₐ: reality feeds back into lattice by measuring spark activity
+  // 𝓡ₐ: feedback con indicadores de actividad, distribución y energía
   const activity = state.sparks.length / (grid*grid);
-  state.kernelMix = (state.kernelMix ?? 0) * 0.95 + activity * 0.05;
+  let spread = 0;
+  if(state.sparks.length){
+    const c = grid/2;
+    for(const s of state.sparks){ spread += Math.hypot(s.x-c, s.y-c); }
+    spread /= state.sparks.length;
+    spread /= Math.hypot(c,c);
+  }
+  const feedback = (activity + spread + (state.energy??0)/10) / 3;
+  const prevMix = state.kernelMix ?? 0;
+  state.kernelMix = prevMix * 0.9 + feedback * 0.1;
   const blended = new Array(9);
   for(let i=0;i<9;i++){
     blended[i] = KERNEL_SMOOTH[i]*(1-state.kernelMix) + KERNEL_RIGID[i]*state.kernelMix;
@@ -122,7 +135,10 @@ export function tick(state){
     diff += Math.abs(attenuated - shapedPrev[i]);
     shapedNext[i] = attenuated;
   }
-  state.timeField = diff / shapedNext.length;
+  const dR = diff / shapedNext.length;
+  const dL = Math.abs(state.kernelMix - prevMix) + 1e-6;
+  const instT = dR / dL;
+  state.timeField = (state.timeField ?? instT)*0.8 + instT*0.2; // filtrado suave
   state.shaped = shapedNext;
   state.customKernel = blended;
   state.preset = "custom";

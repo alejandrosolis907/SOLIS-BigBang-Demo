@@ -8,6 +8,7 @@ const frictionEl = $("#friction");
 const presetEl = $("#preset");
 const kpiEvents = $("#kpiEvents");
 const kpiRes = $("#kpiRes");
+const kpiEnergy = $("#kpiEnergy");
 const kpiT = $("#kpiT");
 const kpiFrames = $("#kpiFrames");
 const bufferBar = $("#bufferBar");
@@ -58,17 +59,20 @@ kernelSmooth.addEventListener("click", ()=>{
 });
 
 function makeState({seed, grid, preset, friction}){
+  const phi = makePhi(seed, grid);
   return {
     seed, grid, preset,
     epsilon: 1.4,
     rng: new RNG(seed ^ 0x9e3779b9),
-    phi: makePhi(seed, grid),
+    phi,
+    initialPhi: Float32Array.from(phi),
     shaped: new Float32Array(grid*grid),
     events: 0,
     sparks: [],
     drift: 0.02,
     friction: friction ?? 0,
     customKernel: customKernel.slice(),
+    energy: 1,
     // Timeline buffers
     timeline: [], // array of snapshots
     resSeries: [],
@@ -212,8 +216,10 @@ function loop(t){
   // KPIs
   const ev = states.reduce((a,s)=> a+s.events, 0);
   const resAvg = states.reduce((a,s)=> a+(s.lastRes||0), 0)/states.length;
+  const energyAvg = states.reduce((a,s)=> a+(s.energy||0), 0)/states.length;
   kpiEvents.textContent = String(ev);
   kpiRes.textContent = (resAvg||0).toFixed(2);
+  if(kpiEnergy) kpiEnergy.textContent = energyAvg.toFixed(2);
 
   drawCharts();
   requestAnimationFrame(loop);
