@@ -130,8 +130,10 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
           const noise = 0.1 * speed * (Math.random() - 0.5);
           const oscill = 0.15 * Math.sin(tt * 0.05 + idx) * speed;
           let energy = base * convNorm + oscill + noise + balance * 0.5;
-          energy = Math.min(1, Math.max(0, energy));
-          energy *= 1 - 0.01 * wsum; // fricción ontológica
+          const clamped = Math.min(1, Math.max(0, energy));
+          const gradient = Math.abs(convNorm - p.energy);
+          const friction = 0.01 * wsum * (1 + prevResRef.current) * gradient;
+          energy = Math.max(0, Math.min(1, clamped * (1 - friction)));
           const symmetry = Math.min(
             1,
             Math.max(
