@@ -48,19 +48,23 @@ function applyKernel(phi, grid, kernel){
   return out;
 }
 
-export function applyLattice(phi, grid, preset, customKernel){
-  const smooth = [
-    0.07, 0.12, 0.07,
-    0.12, 0.26, 0.12,
-    0.07, 0.12, 0.07
-  ];
-  const rig = [
-    0, -1,  0,
-    -1, 4, -1,
-    0, -1,  0
-  ];
-  let kernel = smooth;
-  if(preset==="rigid") kernel = rig;
+export const SMOOTH_KERNEL = [
+  0.07, 0.12, 0.07,
+  0.12, 0.26, 0.12,
+  0.07, 0.12, 0.07
+];
+export const RIGID_KERNEL = [
+  0, -1,  0,
+  -1, 4, -1,
+  0, -1,  0
+];
+
+export function applyLattice(phi, grid, preset, customKernel, mix=0){
+  // blend smooth/rigid kernels according to mix (𝓡ₐ feedback)
+  const blended = SMOOTH_KERNEL.map((s,i)=> s*(1-mix) + RIGID_KERNEL[i]*mix);
+  let kernel = blended;
+  if(preset==="rigid") kernel = RIGID_KERNEL;
+  if(preset==="smooth") kernel = SMOOTH_KERNEL;
   if(preset==="custom" && customKernel?.length===9) kernel = customKernel;
   let shaped = applyKernel(phi, grid, kernel);
   if(preset==="entropy"){
@@ -88,11 +92,14 @@ export function tick(state){
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
-  state.shaped = applyLattice(state.phi, grid, preset, customKernel);
+  // 𝓡ₐ: decay lattice mix and apply to kernel selection
+  state.kernelMix = (state.kernelMix ?? 0) * 0.97;
+  state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
   const stats = resonance(state.shaped);
   state.lastRes = stats.res;
   if(stats.res >= epsilon){
     state.events++;
+    state.kernelMix = Math.min(1, (state.kernelMix ?? 0) + 0.1);
     const x = Math.floor(rng.next()*grid);
     const y = Math.floor(rng.next()*grid);
     state.sparks.push({x,y,t:1.0});
