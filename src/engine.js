@@ -8,20 +8,6 @@
 // R: rendered canvas state
 // 𝓡ₐ: feedback: R nudges 𝓛 over time
 
-import { cosineSim01 } from "./lib/resonance";
-
-const SMOOTH_KERNEL = [
-  0.07, 0.12, 0.07,
-  0.12, 0.26, 0.12,
-  0.07, 0.12, 0.07
-];
-
-const RIGID_KERNEL = [
-  0, -1,  0,
- -1, 4, -1,
-  0, -1,  0
-];
-
 export class RNG {
   constructor(seed=1234){
     this.s = seed >>> 0;
@@ -63,8 +49,18 @@ function applyKernel(phi, grid, kernel){
 }
 
 export function applyLattice(phi, grid, preset, customKernel){
-  let kernel = SMOOTH_KERNEL;
-  if(preset==="rigid") kernel = RIGID_KERNEL;
+  const smooth = [
+    0.07, 0.12, 0.07,
+    0.12, 0.26, 0.12,
+    0.07, 0.12, 0.07
+  ];
+  const rig = [
+    0, -1,  0,
+    -1, 4, -1,
+    0, -1,  0
+  ];
+  let kernel = smooth;
+  if(preset==="rigid") kernel = rig;
   if(preset==="custom" && customKernel?.length===9) kernel = customKernel;
   let shaped = applyKernel(phi, grid, kernel);
   if(preset==="entropy"){
@@ -76,100 +72,32 @@ export function applyLattice(phi, grid, preset, customKernel){
   return shaped;
 }
 
-export function resonance(phi, shaped, t=0, tField){
-  let dot=0, na=0, nb=0, avgT=0;
-  const N = phi.length;
-  for(let i=0;i<N;i++){
-    const w = tField ? 1 + tField[i] : 1;
-    const a = phi[i]*w;
-    const b = shaped[i]*w;
-    dot += a*b;
-    na += a*a;
-    nb += b*b;
-    if(tField) avgT += tField[i];
-  }
-  const sim = (na===0||nb===0)?0:((dot/Math.sqrt(na*nb))+1)/2;
-  const tWeight = 0.5 + 0.5*Math.sin(t*0.1);
-  const avg = tField ? avgT/N : 0;
-  const res = sim * tWeight * (1 + avg);
-  return { sim, tWeight, tField: avg, res };
+export function resonance(shaped){
+  const n = shaped.length;
+  let sum=0, sum2=0;
+  for(let i=0;i<n;i++){ const v=shaped[i]; sum+=v; sum2+=v*v; }
+  const mean = sum/n;
+  const varr = Math.max(0, sum2/n - mean*mean);
+  const std = Math.sqrt(varr);
+  const res = (std>0)? mean/std : 0;
+  return {mean, std, res};
 }
 
 export function tick(state){
-  const {grid, preset, epsilon, rng, drift, customKernel, friction = 0} = state;
-  state.time = (state.time ?? 0) + 1;
+  const {grid, preset, epsilon, rng, drift, customKernel} = state;
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
   state.shaped = applyLattice(state.phi, grid, preset, customKernel);
-  if(friction>0){
-    const damp = 1 - Math.min(Math.max(friction,0),1);
-    for(let i=0;i<state.shaped.length;i++){
-      state.shaped[i] *= damp;
-    }
-  }
-
-  const prevMix = state.prevKernelMix ?? (state.kernelMix ?? 0);
-  const prevShaped = state.prevShaped ?? state.shaped;
-
-  const stats0 = resonance(state.phi, state.shaped, state.time, state.timeField);
-  let triggered = false;
-  if(stats0.res >= epsilon){
+  const stats = resonance(state.shaped);
+  state.lastRes = stats.res;
+  if(stats.res >= epsilon){
     state.events++;
-    triggered = true;
     const x = Math.floor(rng.next()*grid);
     const y = Math.floor(rng.next()*grid);
     state.sparks.push({x,y,t:1.0});
   }
   state.sparks = state.sparks.map(s=> ({...s, t: Math.max(0, s.t-0.06)})).filter(s=>s.t>0);
-
-  // 𝓡ₐ feedback: adjust lattice based on recent events
-  state.kernelMix = (state.kernelMix ?? 0) * 0.99; // decay
-  if(triggered) state.kernelMix = Math.min(1, state.kernelMix + 0.05);
-
-  if(!state.baseKernel){
-    // capture starting lattice as baseline
-    if(customKernel?.length === 9) state.baseKernel = Array.from(customKernel);
-    else state.baseKernel = SMOOTH_KERNEL.slice();
-  }
-
-  if(state.preset !== "custom"){
-    state.preset = "custom";
-    if(!state.customKernel || state.customKernel.length !== 9){
-      state.customKernel = state.baseKernel.slice();
-    }
-  }
-
-  const mix = state.kernelMix;
-  for(let i=0;i<9;i++){
-    state.customKernel[i] = state.baseKernel[i]*(1-mix) + RIGID_KERNEL[i]*mix;
-  }
-
-  // recompute shaped with updated lattice and estimate 𝓣
-  const shapedNew = applyLattice(state.phi, grid, "custom", state.customKernel);
-  if(friction>0){
-    const damp = 1 - Math.min(Math.max(friction,0),1);
-    for(let i=0;i<shapedNew.length;i++){
-      shapedNew[i] *= damp;
-    }
-  }
-  if(!state.timeField) state.timeField = new Float32Array(shapedNew.length);
-  const deltaL = Math.abs(state.kernelMix - prevMix);
-  let sumT = 0;
-  for(let i=0;i<shapedNew.length;i++){
-    const d = Math.abs(shapedNew[i] - prevShaped[i]);
-    const tVal = deltaL > 1e-6 ? d/deltaL : 0;
-    state.timeField[i] = tVal;
-    sumT += tVal;
-  }
-  state.avgT = sumT / shapedNew.length;
-  state.shaped = shapedNew;
-  state.prevShaped = Float32Array.from(shapedNew);
-  state.prevKernelMix = state.kernelMix;
-
-  const stats = resonance(state.phi, state.shaped, state.time, state.timeField);
-  state.lastRes = stats.res;
-  state.avgT = stats.tField;
 }
 
 export function drawToCanvas(state, canvas){
@@ -183,11 +111,7 @@ export function drawToCanvas(state, canvas){
 
   for(let y=0;y<grid;y++){
     for(let x=0;x<grid;x++){
-      const idx = y*grid+x;
-      let v = state.shaped[idx];
-      if(state.timeField){
-        v = Math.min(1, v*(1 + state.timeField[idx]));
-      }
+      const v = state.shaped[y*grid+x];
       const lum = Math.max(0, Math.min(255, Math.floor(v*255)));
       ctx.fillStyle = `rgb(${lum},${Math.floor(lum*0.8)},${Math.floor(180+0.3*lum)})`;
       ctx.fillRect(x*cw, y*ch, cw+1, ch+1);
@@ -208,8 +132,7 @@ export function snapshot(state){
   return {
     shaped: Float32Array.from(state.shaped),
     res: state.lastRes,
-    events: state.events,
-    tField: state.timeField ? Float32Array.from(state.timeField) : undefined
+    events: state.events
   };
 }
 

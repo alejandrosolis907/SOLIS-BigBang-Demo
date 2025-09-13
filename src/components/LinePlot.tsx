@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-
-type Snapshot = { t: number; energy: number; avgT: number };
+import type { Snapshot } from "./PhiCanvas";
 
 export function LinePlot({
   snapshot,
