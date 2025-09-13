@@ -89,6 +89,8 @@ export function resonance(shaped){
 
 export function tick(state){
   const {grid, preset, epsilon, rng, drift, customKernel} = state;
+  // remember original preset so feedback can modify and restore
+  state.basePreset = state.basePreset ?? preset;
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
@@ -105,6 +107,27 @@ export function tick(state){
     state.sparks.push({x,y,t:1.0});
   }
   state.sparks = state.sparks.map(s=> ({...s, t: Math.max(0, s.t-0.06)})).filter(s=>s.t>0);
+
+  // 𝓡ₐ: adjust lattice based on spark distribution and event history
+  if(state.sparks.length){
+    let left=0,right=0,top=0,bottom=0;
+    for(const s of state.sparks){
+      if(s.x < grid/2) left++; else right++;
+      if(s.y < grid/2) top++; else bottom++;
+    }
+    const biasX = (right - left)/state.sparks.length;
+    const biasY = (bottom - top)/state.sparks.length;
+    const scale = Math.min(0.2, state.events/100);
+    const dynamic = Array.from(SMOOTH_KERNEL);
+    dynamic[3] += biasX * scale;
+    dynamic[5] -= biasX * scale;
+    dynamic[1] += biasY * scale;
+    dynamic[7] -= biasY * scale;
+    state.customKernel = dynamic;
+    state.preset = "custom";
+  } else {
+    state.preset = state.basePreset;
+  }
 }
 
 export function drawToCanvas(state, canvas){
