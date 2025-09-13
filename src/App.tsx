@@ -155,7 +155,17 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
       const avg = nextPoss.reduce((a, p) => a + p.energy, 0) / nextPoss.length;
       const avgSym = nextPoss.reduce((a, p) => a + p.symmetry, 0) / nextPoss.length;
       const avgCurv = nextPoss.reduce((a, p) => a + p.curvature, 0) / nextPoss.length;
-      const res = nextPoss.reduce((a, p) => a + p.energy * p.symmetry, 0) / nextPoss.length;
+      let res =
+        nextPoss.reduce(
+          (a, p) =>
+            a +
+            p.energy *
+              p.symmetry *
+              (1 - Math.abs(p.curvature)) *
+              (0.5 + 0.5 * Math.cos(tt * 0.02 + p.phase)),
+          0
+        ) / nextPoss.length;
+      res = Math.max(0, Math.min(1, res));
 
       let timeline = prev.timeline;
       if (Math.random() < 0.06 * speed) {
