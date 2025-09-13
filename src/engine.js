@@ -8,6 +8,18 @@
 // R: rendered canvas state
 // 𝓡ₐ: feedback: R nudges 𝓛 over time
 
+const SMOOTH_KERNEL = [
+  0.07, 0.12, 0.07,
+  0.12, 0.26, 0.12,
+  0.07, 0.12, 0.07
+];
+
+const RIGID_KERNEL = [
+  0, -1,  0,
+ -1, 4, -1,
+  0, -1,  0
+];
+
 export class RNG {
   constructor(seed=1234){
     this.s = seed >>> 0;
@@ -49,18 +61,8 @@ function applyKernel(phi, grid, kernel){
 }
 
 export function applyLattice(phi, grid, preset, customKernel){
-  const smooth = [
-    0.07, 0.12, 0.07,
-    0.12, 0.26, 0.12,
-    0.07, 0.12, 0.07
-  ];
-  const rig = [
-    0, -1,  0,
-    -1, 4, -1,
-    0, -1,  0
-  ];
-  let kernel = smooth;
-  if(preset==="rigid") kernel = rig;
+  let kernel = SMOOTH_KERNEL;
+  if(preset==="rigid") kernel = RIGID_KERNEL;
   if(preset==="custom" && customKernel?.length===9) kernel = customKernel;
   let shaped = applyKernel(phi, grid, kernel);
   if(preset==="entropy"){
@@ -91,13 +93,37 @@ export function tick(state){
   state.shaped = applyLattice(state.phi, grid, preset, customKernel);
   const stats = resonance(state.shaped);
   state.lastRes = stats.res;
+  let triggered = false;
   if(stats.res >= epsilon){
     state.events++;
+    triggered = true;
     const x = Math.floor(rng.next()*grid);
     const y = Math.floor(rng.next()*grid);
     state.sparks.push({x,y,t:1.0});
   }
   state.sparks = state.sparks.map(s=> ({...s, t: Math.max(0, s.t-0.06)})).filter(s=>s.t>0);
+
+  // 𝓡ₐ feedback: adjust lattice based on recent events
+  state.kernelMix = (state.kernelMix ?? 0) * 0.99; // decay
+  if(triggered) state.kernelMix = Math.min(1, state.kernelMix + 0.05);
+
+  if(!state.baseKernel){
+    // capture starting lattice as baseline
+    if(customKernel?.length === 9) state.baseKernel = Array.from(customKernel);
+    else state.baseKernel = SMOOTH_KERNEL.slice();
+  }
+
+  if(state.preset !== "custom"){
+    state.preset = "custom";
+    if(!state.customKernel || state.customKernel.length !== 9){
+      state.customKernel = state.baseKernel.slice();
+    }
+  }
+
+  const mix = state.kernelMix;
+  for(let i=0;i<9;i++){
+    state.customKernel[i] = state.baseKernel[i]*(1-mix) + RIGID_KERNEL[i]*mix;
+  }
 }
 
 export function drawToCanvas(state, canvas){
