@@ -29,12 +29,13 @@ function seededPossibilities(seed: number, n = 32): Possibility[] {
 }
 
 // ======= One universe cell with visual + plot =======
-function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal, onLatticeChange }:{
+function UniverseCell({ seed, running, speed, grid, balance, friction, kernel, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal, onLatticeChange }:{
   seed: number;
   running: boolean;
   speed: number;
   grid: number;
   balance: number;
+  friction: number;
   kernel: number[];
   onToggle: () => void;
   onResetSoft: () => void;
@@ -98,7 +99,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
   useEffect(() => {
     if (!running) return;
     let raf = 0;
-    const loop = () => {
+  const loop = () => {
       const prev = snapshotRef.current;
       const tt = prev.t + speed;
 
@@ -130,10 +131,11 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
           const noise = 0.1 * speed * (Math.random() - 0.5);
           const oscill = 0.15 * Math.sin(tt * 0.05 + idx) * speed;
           let energy = base * convNorm + oscill + noise + balance * 0.5;
+          energy *= 1 - friction;
           const clamped = Math.min(1, Math.max(0, energy));
           const gradient = Math.abs(convNorm - p.energy);
-          const friction = 0.01 * wsum * (1 + prevResRef.current) * gradient;
-          energy = Math.max(0, Math.min(1, clamped * (1 - friction)));
+          const loss = 0.01 * wsum * (1 + prevResRef.current) * gradient;
+          energy = Math.max(0, Math.min(1, clamped * (1 - loss)));
           const symmetry = Math.min(
             1,
             Math.max(
@@ -214,7 +216,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, speed, balance, kernel]);
+  }, [running, speed, balance, friction, kernel]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
@@ -258,6 +260,7 @@ export default function App(){
   const [gridSize, setGridSize] = useState(32);
   const [speed, setSpeed] = useState(1);
   const [balance, setBalance] = useState(0);
+  const [friction, setFriction] = useState(0);
   const [kernel, setKernel] = useState<number[]>([0,-1,0,-1,5,-1,0,-1,0]);
 
   const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
@@ -321,6 +324,8 @@ export default function App(){
             setGrid={setGridSize}
             balance={balance}
             setBalance={setBalance}
+            friction={friction}
+            setFriction={setFriction}
           />
           <KernelEditor kernel={kernel} setKernel={setKernel} />
         </aside>
@@ -335,6 +340,7 @@ export default function App(){
                   speed={speed}
                   grid={gridSize}
                   balance={balance}
+                  friction={friction}
                   kernel={kernel}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
                   onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
@@ -355,6 +361,7 @@ export default function App(){
                   speed={speed}
                   grid={gridSize}
                   balance={balance}
+                  friction={friction}
                   kernel={kernel}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
                   onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}

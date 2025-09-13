@@ -9,6 +9,8 @@ export function GlobalParamsPanel({
   setGrid,
   balance,
   setBalance,
+  friction,
+  setFriction,
 }: {
   seedBase: number;
   setSeedBase: (v: number) => void;
@@ -18,6 +20,8 @@ export function GlobalParamsPanel({
   setGrid: (v: number) => void;
   balance: number;
   setBalance: (v: number) => void;
+  friction: number;
+  setFriction: (v: number) => void;
 }) {
   return (
     <div className="bg-slate-900/70 rounded-2xl p-4 space-y-4">
@@ -65,6 +69,19 @@ export function GlobalParamsPanel({
           onChange={(e) => setBalance(parseFloat(e.target.value))}
         />
         <div className="text-xs mt-1">{balance.toFixed(2)}</div>
+      </label>
+      <label className="block text-sm">
+        Fricción μ
+        <input
+          type="range"
+          min={0}
+          max={0.1}
+          step={0.005}
+          className="w-full"
+          value={friction}
+          onChange={(e) => setFriction(parseFloat(e.target.value))}
+        />
+        <div className="text-xs mt-1">{friction.toFixed(3)}</div>
       </label>
     </div>
   );

@@ -84,12 +84,18 @@ export function resonance(phi, shaped, t=0, tField=0){
 }
 
 export function tick(state){
-  const {grid, preset, epsilon, rng, drift, customKernel} = state;
+  const {grid, preset, epsilon, rng, drift, customKernel, friction = 0} = state;
   state.time = (state.time ?? 0) + 1;
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
   state.shaped = applyLattice(state.phi, grid, preset, customKernel);
+  if(friction>0){
+    const damp = 1 - Math.min(Math.max(friction,0),1);
+    for(let i=0;i<state.shaped.length;i++){
+      state.shaped[i] *= damp;
+    }
+  }
 
   const prevMix = state.prevKernelMix ?? (state.kernelMix ?? 0);
   const prevShaped = state.prevShaped ?? state.shaped;
@@ -129,6 +135,12 @@ export function tick(state){
 
   // recompute shaped with updated lattice and estimate 𝓣
   const shapedNew = applyLattice(state.phi, grid, "custom", state.customKernel);
+  if(friction>0){
+    const damp = 1 - Math.min(Math.max(friction,0),1);
+    for(let i=0;i<shapedNew.length;i++){
+      shapedNew[i] *= damp;
+    }
+  }
   let deltaR = 0;
   for(let i=0;i<shapedNew.length;i++){
     deltaR += Math.abs(shapedNew[i] - prevShaped[i]);
