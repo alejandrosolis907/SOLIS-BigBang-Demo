@@ -199,7 +199,9 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
 
       if (onLatticeChange && tt - lastKernelUpdateRef.current > 200) {
         const delta = (res - 0.5) * 0.1;
-        const newKernel = kernel.map((v, i) => (i === 4 ? v + delta : v));
+        let newKernel = kernel.map((v) => v + delta * (v / ksum));
+        const newSum = newKernel.reduce((a, b) => a + b, 0) || 1;
+        newKernel = newKernel.map((v) => v * (ksum / newSum));
         onLatticeChange(newKernel);
         lastKernelUpdateRef.current = tt;
       }
