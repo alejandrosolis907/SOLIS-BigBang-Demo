@@ -1,34 +1,11 @@
-
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { exportGridPng } from "./utils/capture";
 import { LinePlot } from "./components/LinePlot";
-import { PhiCanvas, type Snapshot as PhiSnapshot } from "./components/PhiCanvas";
 import { GlobalParamsPanel } from "./components/GlobalParamsPanel";
 import { KernelEditor } from "./components/KernelEditor";
 import { ResonanceMeter } from "./components/ResonanceMeter";
+import { makePhi, tick, drawToCanvas, RNG } from "./engine";
 
-// ==== Core types reproduced to remain compatible with BigBang2 motor ====
-type Possibility = { id: string; energy: number; symmetry: number; curvature: number; phase: number; };
-function mulberry32(a: number) {
-  return function () {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function seededPossibilities(seed: number, n = 32): Possibility[] {
-  const rnd = mulberry32(seed);
-  const arr: Possibility[] = [];
-  for (let i = 0; i < n; i++) {
-    // start near an Ω-like vacuum: almost no energy, neutral symmetry and flat curvature
-    arr.push({ id: `p${i}`, energy: rnd() * 0.05, symmetry: 0.5, curvature: 0, phase: rnd() * Math.PI * 2 });
-  }
-  return arr;
-}
-
-// ======= One universe cell with visual + plot =======
 function UniverseCell({ seed, running, speed, grid, balance, friction, kernel, onToggle, onResetSoft, onResetHard, mode = "both", label, onHistory, resetSignal, onLatticeChange }:{
   seed: number;
   running: boolean;
@@ -46,204 +23,72 @@ function UniverseCell({ seed, running, speed, grid, balance, friction, kernel, o
   resetSignal: number;
   onLatticeChange?: (k: number[]) => void;
 }){
-  const [snapshot, setSnapshot] = useState<PhiSnapshot>(() => ({
-    t: 0,
-    energy: 0,
-    symmetry: 0.5,
-    curvature: 0,
-    possibilities: seededPossibilities(seed, grid * grid),
-    timeline: [],
-  }));
-  const snapshotRef = useRef(snapshot);
-  useEffect(() => { snapshotRef.current = snapshot; }, [snapshot]);
-  const [freqHz, setFreqHz] = useState(0);
-  const [resonance, setResonance] = useState(0);
-  const prev1Ref = useRef<number | null>(null);
-  const prev2Ref = useRef<number | null>(null);
-  const lastPeakTickRef = useRef<number | null>(null);
-  const lastKernelUpdateRef = useRef(0);
-  const prevResRef = useRef(0);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stateRef = useRef<any>(null);
+  const [snap, setSnap] = useState<{t:number; energy:number}>({t:0, energy:0});
   const resThreshold = 0.7;
 
-  const reset = React.useCallback(() => {
-    const snap: PhiSnapshot = {
-      t: 0,
-      energy: 0,
-      symmetry: 0.5,
-      curvature: 0,
-      possibilities: seededPossibilities(seed, grid * grid),
-      timeline: [],
+  const reset = useCallback(() => {
+    const rng = new RNG(seed);
+    const phi = makePhi(seed, grid);
+    stateRef.current = {
+      phi,
+      shaped: new Float32Array(phi.length),
+      grid,
+      preset: "custom",
+      customKernel: kernel.slice(),
+      baseKernel: kernel.slice(),
+      epsilon: resThreshold,
+      rng,
+      drift: 0.01 + (balance + 1) * 0.01,
+      friction,
+      sparks: [],
+      events: 0,
     };
-    snapshotRef.current = snap;
-    setSnapshot(snap);
-    onHistory?.([]);
-    setFreqHz(0);
-    prev1Ref.current = null;
-    prev2Ref.current = null;
-    lastPeakTickRef.current = null;
-  }, [seed, grid, onHistory]);
+    setSnap({t:0, energy:0});
+  }, [seed, grid, kernel, balance, friction]);
 
   useEffect(() => { reset(); }, [reset, resetSignal]);
 
-  const runningRef = useRef(running);
   useEffect(() => {
-    runningRef.current = running;
-    if (!running) {
-      prev1Ref.current = null;
-      prev2Ref.current = null;
-      lastPeakTickRef.current = null;
-      setFreqHz(0);
-    }
-  }, [running]);
-
-  useEffect(() => {
-    if (!running) return;
-    let raf = 0;
-  const loop = () => {
-      const prev = snapshotRef.current;
-      const tt = prev.t + speed;
-
-      const expansion = 1 - Math.exp(-tt * 0.02);
-      const cooling = Math.exp(-tt * 0.0005);
-      const base = expansion * cooling;
-
-      const ksum = kernel.reduce((a, b) => a + b, 0) || 1;
-      const side = grid;
-      const prevPoss = prev.possibilities;
-      const nextPoss: Possibility[] = [];
-      for (let y = 0; y < side; y++) {
-        for (let x = 0; x < side; x++) {
-          const idx = y * side + x;
-          const p = prevPoss[idx];
-          let conv = 0;
-          let wsum = 0;
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const w = kernel[(dy + 1) * 3 + (dx + 1)] ?? 0;
-              const nx = (x + dx + side) % side;
-              const ny = (y + dy + side) % side;
-              const nidx = ny * side + nx;
-              conv += w * prevPoss[nidx].energy;
-              wsum += w;
-            }
-          }
-          const convNorm = wsum ? conv / wsum : 0;
-          const noise = 0.1 * speed * (Math.random() - 0.5);
-          const oscill = 0.15 * Math.sin(tt * 0.05 + idx) * speed;
-          let energy = base * convNorm + oscill + noise + balance * 0.5;
-          energy *= 1 - friction;
-          const clamped = Math.min(1, Math.max(0, energy));
-          const gradient = Math.abs(convNorm - p.energy);
-          const loss = 0.01 * wsum * (1 + prevResRef.current) * gradient;
-          energy = Math.max(0, Math.min(1, clamped * (1 - loss)));
-          const symmetry = Math.min(
-            1,
-            Math.max(
-              0,
-              0.5 + 0.5 * Math.cos(tt * 0.03 + idx) * convNorm +
-                balance * 0.5 + 0.1 * speed * (Math.random() - 0.5)
-            )
-          );
-          const curvature = Math.max(
-            -1,
-            Math.min(
-              1,
-              p.curvature * 0.98 +
-                0.1 * Math.sin(tt * 0.04 + idx) * speed +
-                (convNorm - 1) * 0.1 +
-                0.05 * speed * (Math.random() - 0.5)
-            )
-          );
-          const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + idx);
-          nextPoss[idx] = { ...p, energy, symmetry, curvature, phase };
-        }
-      }
-      const avg = nextPoss.reduce((a, p) => a + p.energy, 0) / nextPoss.length;
-      const avgSym = nextPoss.reduce((a, p) => a + p.symmetry, 0) / nextPoss.length;
-      const avgCurv = nextPoss.reduce((a, p) => a + p.curvature, 0) / nextPoss.length;
-      let res =
-        nextPoss.reduce(
-          (a, p) =>
-            a +
-            p.energy *
-              p.symmetry *
-              (1 - Math.abs(p.curvature)) *
-              (0.5 + 0.5 * Math.cos(tt * 0.02 + p.phase)),
-          0
-        ) / nextPoss.length;
-      res = Math.max(0, Math.min(1, res));
-
-      let timeline = prev.timeline;
-      if (res >= resThreshold && prevResRef.current < resThreshold) {
-        timeline = [...timeline.slice(-63), { t: tt, score: avg }];
-      }
-      prevResRef.current = res;
-
-      const snap: PhiSnapshot = { t: tt, energy: avg, symmetry: avgSym, curvature: avgCurv, possibilities: nextPoss, timeline };
-      snapshotRef.current = snap;
-      setSnapshot(snap);
-      setResonance(res);
-
-      if (
-        prev2Ref.current !== null &&
-        prev1Ref.current !== null &&
-        prev1Ref.current > prev2Ref.current &&
-        prev1Ref.current > avg
-      ) {
-        if (lastPeakTickRef.current != null) {
-          const periodTicks = tt - lastPeakTickRef.current;
-          if (periodTicks > 0) {
-            setFreqHz((60 * speed) / periodTicks);
-          }
-        }
-        lastPeakTickRef.current = tt;
-      }
-      prev2Ref.current = prev1Ref.current;
-      prev1Ref.current = avg;
-
-      if (onLatticeChange && tt - lastKernelUpdateRef.current > 200) {
-        const delta = (res - 0.5) * 0.1;
-        let newKernel = kernel.map((v) => v + delta * (v / ksum));
-        const newSum = newKernel.reduce((a, b) => a + b, 0) || 1;
-        newKernel = newKernel.map((v) => v * (ksum / newSum));
-        onLatticeChange(newKernel);
-        lastKernelUpdateRef.current = tt;
-      }
-
-      if (runningRef.current) {
-        raf = requestAnimationFrame(loop);
-      }
+    if(!running) return;
+    let raf:number;
+    const loop = () => {
+      const st = stateRef.current;
+      for(let i=0;i<Math.max(1,Math.floor(speed));i++) tick(st);
+      drawToCanvas(st, canvasRef.current!);
+      setSnap({t: st.time, energy: st.lastRes});
+      onLatticeChange?.(Array.from(st.customKernel));
+      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, speed, balance, friction, kernel]);
+  }, [running, speed, onLatticeChange]);
+
+  useEffect(() => {
+    if(stateRef.current){
+      stateRef.current.customKernel = kernel.slice();
+      stateRef.current.baseKernel = kernel.slice();
+      stateRef.current.friction = friction;
+      stateRef.current.drift = 0.01 + (balance + 1) * 0.01;
+    }
+  }, [kernel, friction, balance]);
 
   return (
     <div className="bg-slate-900/70 rounded-2xl p-3 capture-frame relative">
       {label && <div className="text-sm font-semibold mb-2">{label}</div>}
       {mode !== "plot" && (
-        <PhiCanvas
-          snapshot={snapshot}
-          speed={speed}
-          className="h-48"
-          paletteIndex={seed}
-        />
+        <canvas ref={canvasRef} className="w-full h-48 rounded-xl" width={grid*4} height={grid*4}></canvas>
       )}
       {mode !== "visual" && (
         <div className={mode === "both" ? "mt-3" : ""}>
-          <LinePlot snapshot={snapshot} running={running} onHistory={onHistory} />
-          <div className="text-xs mt-1">f ≈ {freqHz.toFixed(2)} Hz</div>
-          <div className="mt-2"><ResonanceMeter value={resonance} /></div>
+          <LinePlot snapshot={snap} running={running} onHistory={onHistory} />
+          <div className="mt-2"><ResonanceMeter value={snap.energy} /></div>
         </div>
       )}
       {mode !== "visual" && (
         <div className="mt-2 flex items-center gap-2 text-xs opacity-80">
-          <button
-            className={"px-2 py-1 rounded-md "+(running?"bg-slate-800":"bg-indigo-700") }
-            onClick={onToggle}
-          >
-            {running? "Pausar 𝓣":"Iniciar 𝓣"}
-          </button>
+          <button className={"px-2 py-1 rounded-md "+(running?"bg-slate-800":"bg-indigo-700")} onClick={onToggle}>{running?"Pausar 𝓣":"Iniciar 𝓣"}</button>
           <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetSoft}>Reset 𝓣/R</button>
           <button className="px-2 py-1 rounded-md bg-slate-800" onClick={onResetHard}>Big Bang ♻︎</button>
           <span className="ml-auto">seed: {seed}</span>
