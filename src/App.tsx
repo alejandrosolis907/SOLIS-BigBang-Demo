@@ -61,6 +61,8 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
   const prev2Ref = useRef<number | null>(null);
   const lastPeakTickRef = useRef<number | null>(null);
   const lastKernelUpdateRef = useRef(0);
+  const prevResRef = useRef(0);
+  const resThreshold = 0.7;
 
   const reset = React.useCallback(() => {
     const snap: PhiSnapshot = {
@@ -168,9 +170,10 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, onToggle, o
       res = Math.max(0, Math.min(1, res));
 
       let timeline = prev.timeline;
-      if (Math.random() < 0.06 * speed) {
+      if (res >= resThreshold && prevResRef.current < resThreshold) {
         timeline = [...timeline.slice(-63), { t: tt, score: avg }];
       }
+      prevResRef.current = res;
 
       const snap: PhiSnapshot = { t: tt, energy: avg, symmetry: avgSym, curvature: avgCurv, possibilities: nextPoss, timeline };
       snapshotRef.current = snap;
