@@ -76,11 +76,11 @@ export function applyLattice(phi, grid, preset, customKernel){
   return shaped;
 }
 
-export function resonance(phi, shaped, t=0){
+export function resonance(phi, shaped, t=0, tField=0){
   const sim = cosineSim01(phi, shaped);
   const tWeight = 0.5 + 0.5*Math.sin(t*0.1);
-  const res = sim * tWeight;
-  return { sim, tWeight, res };
+  const res = sim * tWeight * (1 + tField);
+  return { sim, tWeight, tField, res };
 }
 
 export function tick(state){
@@ -90,10 +90,13 @@ export function tick(state){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
   }
   state.shaped = applyLattice(state.phi, grid, preset, customKernel);
-  const stats = resonance(state.phi, state.shaped, state.time);
-  state.lastRes = stats.res;
+
+  const prevMix = state.prevKernelMix ?? (state.kernelMix ?? 0);
+  const prevShaped = state.prevShaped ?? state.shaped;
+
+  const stats0 = resonance(state.phi, state.shaped, state.time, state.timeField ?? 0);
   let triggered = false;
-  if(stats.res >= epsilon){
+  if(stats0.res >= epsilon){
     state.events++;
     triggered = true;
     const x = Math.floor(rng.next()*grid);
@@ -123,6 +126,22 @@ export function tick(state){
   for(let i=0;i<9;i++){
     state.customKernel[i] = state.baseKernel[i]*(1-mix) + RIGID_KERNEL[i]*mix;
   }
+
+  // recompute shaped with updated lattice and estimate 𝓣
+  const shapedNew = applyLattice(state.phi, grid, "custom", state.customKernel);
+  let deltaR = 0;
+  for(let i=0;i<shapedNew.length;i++){
+    deltaR += Math.abs(shapedNew[i] - prevShaped[i]);
+  }
+  deltaR /= shapedNew.length;
+  const deltaL = Math.abs(state.kernelMix - prevMix);
+  state.timeField = deltaL > 1e-6 ? deltaR / deltaL : 0;
+  state.shaped = shapedNew;
+  state.prevShaped = Float32Array.from(shapedNew);
+  state.prevKernelMix = state.kernelMix;
+
+  const stats = resonance(state.phi, state.shaped, state.time, state.timeField);
+  state.lastRes = stats.res;
 }
 
 export function drawToCanvas(state, canvas){
@@ -157,7 +176,8 @@ export function snapshot(state){
   return {
     shaped: Float32Array.from(state.shaped),
     res: state.lastRes,
-    events: state.events
+    events: state.events,
+    tField: state.timeField
   };
 }
 

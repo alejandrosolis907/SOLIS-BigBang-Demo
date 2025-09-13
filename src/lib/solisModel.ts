@@ -18,6 +18,9 @@ export function useSolisModel() {
   // métricas delta (antes/después de mover 𝓛)
   const lastMetricsRef = useRef({ entropy: 0, density: 0, clusters: 0 });
   const [metricsDelta, setMetricsDelta] = useState({ dEntropy: 0, dDensity: 0, dClusters: 0 });
+  // 𝓣: ∂R/∂𝓛 aproximado
+  const [timeField, setTimeField] = useState<number>(0);
+  const lastLRef = useRef<number[]>([...L]);
   // log de eventos ε
   const [eventsLog, setEventsLog] = useState<EventEpsilon[]>([]);
 
@@ -35,22 +38,30 @@ export function useSolisModel() {
     const P = particlesRef.current;
     const res = P.map(p => cosineSim01(p.features, L));
     const avg = res.length ? res.reduce((a,b)=>a+b,0)/res.length : 0;
-    setResonanceNow(avg);
 
     // métricas y Δ (∂R/∂𝓛 estimado por diferencia)
     const m = computeMetrics(res, theta);
-    setMetricsDelta({
-      dEntropy: m.entropy - lastMetricsRef.current.entropy,
-      dDensity: m.density - lastMetricsRef.current.density,
-      dClusters: m.clusters - lastMetricsRef.current.clusters,
-    });
+    const dEntropy = m.entropy - lastMetricsRef.current.entropy;
+    const dDensity = m.density - lastMetricsRef.current.density;
+    const dClusters = m.clusters - lastMetricsRef.current.clusters;
+    setMetricsDelta({ dEntropy, dDensity, dClusters });
     lastMetricsRef.current = m;
 
-    // eventos ε (dispara para las partículas que cruzan θ)
+    // 𝓣 explícito: cambio en métricas sobre cambio en 𝓛
+    const dL = L.reduce((acc, val, i) => acc + Math.abs(val - lastLRef.current[i]), 0);
+    const dR = Math.abs(dEntropy) + Math.abs(dDensity) + Math.abs(dClusters);
+    const tField = dL > 1e-6 ? dR / dL : 0;
+    setTimeField(tField);
+    lastLRef.current = [...L];
+
+    setResonanceNow(avg * (1 + tField));
+
+    // eventos ε (dispara para las partículas que cruzan θ ajustado por 𝓣)
+    const effectiveTheta = theta * (1 + tField);
     const events: EventEpsilon[] = [];
     P.forEach((p, i) => {
       const r = res[i];
-      if (r >= theta) {
+      if (r >= effectiveTheta) {
         events.push({ t: timeRef.current, id: p.id, r, L: [...L] });
       }
     });
@@ -68,6 +79,7 @@ export function useSolisModel() {
     L, setL, theta, setTheta,
     resonanceNow,
     metricsDelta, resetMetrics,
+    timeField,
     eventsLog,
     pushParticles, tick
   };
