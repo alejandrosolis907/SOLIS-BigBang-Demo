@@ -8,6 +8,18 @@
 // R: rendered canvas state
 // 𝓡ₐ: feedback: R nudges 𝓛 over time
 
+const KERNEL_SMOOTH = [
+  0.07, 0.12, 0.07,
+  0.12, 0.26, 0.12,
+  0.07, 0.12, 0.07
+];
+
+const KERNEL_RIGID = [
+  0, -1,  0,
+  -1, 4, -1,
+  0, -1,  0
+];
+
 export class RNG {
   constructor(seed=1234){
     this.s = seed >>> 0;
@@ -49,18 +61,8 @@ function applyKernel(phi, grid, kernel){
 }
 
 export function applyLattice(phi, grid, preset, customKernel){
-  const smooth = [
-    0.07, 0.12, 0.07,
-    0.12, 0.26, 0.12,
-    0.07, 0.12, 0.07
-  ];
-  const rig = [
-    0, -1,  0,
-    -1, 4, -1,
-    0, -1,  0
-  ];
-  let kernel = smooth;
-  if(preset==="rigid") kernel = rig;
+  let kernel = KERNEL_SMOOTH;
+  if(preset==="rigid") kernel = KERNEL_RIGID;
   if(preset==="custom" && customKernel?.length===9) kernel = customKernel;
   let shaped = applyKernel(phi, grid, kernel);
   if(preset==="entropy"){
@@ -98,6 +100,16 @@ export function tick(state){
     state.sparks.push({x,y,t:1.0});
   }
   state.sparks = state.sparks.map(s=> ({...s, t: Math.max(0, s.t-0.06)})).filter(s=>s.t>0);
+
+  // 𝓡ₐ: reality feeds back into lattice by measuring spark activity
+  const activity = state.sparks.length / (grid*grid);
+  state.kernelMix = (state.kernelMix ?? 0) * 0.95 + activity * 0.05;
+  const blended = new Array(9);
+  for(let i=0;i<9;i++){
+    blended[i] = KERNEL_SMOOTH[i]*(1-state.kernelMix) + KERNEL_RIGID[i]*state.kernelMix;
+  }
+  state.customKernel = blended;
+  state.preset = "custom";
 }
 
 export function drawToCanvas(state, canvas){
