@@ -76,28 +76,62 @@ export function applyLattice(phi, grid, preset, customKernel, mix=0){
   return shaped;
 }
 
-export function resonance(shaped){
-  const n = shaped.length;
-  let sum=0, sum2=0;
-  for(let i=0;i<n;i++){ const v=shaped[i]; sum+=v; sum2+=v*v; }
-  const mean = sum/n;
-  const varr = Math.max(0, sum2/n - mean*mean);
-  const std = Math.sqrt(varr);
-  const res = (std>0)? mean/std : 0;
-  return {mean, std, res};
+// ℜ: measure affinity between φ and 𝓛 with temporal context 𝓣
+function cosineSim01(a,b){
+  let dot=0,na=0,nb=0;
+  const n=Math.min(a.length,b.length);
+  for(let i=0;i<n;i++){
+    const x=a[i], y=b[i];
+    dot+=x*y; na+=x*x; nb+=y*y;
+  }
+  if(na===0||nb===0) return 0;
+  const raw=dot/Math.sqrt(na*nb); // -1..1
+  return (raw+1)/2; // 0..1
+}
+
+export function resonance(phi, shaped, context=0){
+  const sim = cosineSim01(phi, shaped);
+  // map context (timeField) to 0..1 window via sinusoidal cycle
+  const t = 0.5 + 0.5*Math.sin(context*0.05);
+  const res = sim * t;
+  return {sim, t, res};
 }
 
 export function tick(state){
-  const {grid, preset, epsilon, rng, drift, customKernel} = state;
+  const {grid, preset, epsilon, rng, drift, mu = 0, customKernel} = state;
+  // remember original preset so feedback can modify and restore
+  state.basePreset = state.basePreset ?? preset;
   for(let i=0;i<state.phi.length;i++){
     state.phi[i] = (1-drift)*state.phi[i] + drift*rng.next();
+    // ontological friction μ attenuates Φ
+    state.phi[i] *= (1 - mu);
   }
   // 𝓡ₐ: decay lattice mix and apply to kernel selection
   state.kernelMix = (state.kernelMix ?? 0) * 0.97;
   state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
-  const stats = resonance(state.shaped);
+  if(mu>0){
+    for(let i=0;i<state.shaped.length;i++){
+      state.shaped[i] *= (1 - mu);
+    }
+  }
+  // 𝓣: derivative of R with respect to lattice variation
+  if(state.prevShaped){
+    let diffR=0;
+    for(let i=0;i<state.shaped.length;i++){
+      diffR += Math.abs(state.shaped[i]-state.prevShaped[i]);
+    }
+    diffR /= state.shaped.length;
+    const diffL = Math.abs((state.kernelMix ?? 0) - (state.prevKernelMix ?? state.kernelMix));
+    state.timeField = diffL>0 ? diffR/diffL : 0;
+  } else {
+    state.timeField = 0;
+  }
+  state.prevShaped = Float32Array.from(state.shaped);
+  state.prevKernelMix = state.kernelMix;
+  const stats = resonance(state.phi, state.shaped, state.timeField);
   state.lastRes = stats.res;
-  if(stats.res >= epsilon){
+  const effectiveEps = epsilon * (1 + state.timeField);
+  if(stats.res >= effectiveEps){
     state.events++;
     state.kernelMix = Math.min(1, (state.kernelMix ?? 0) + 0.1);
     const x = Math.floor(rng.next()*grid);
@@ -105,6 +139,27 @@ export function tick(state){
     state.sparks.push({x,y,t:1.0});
   }
   state.sparks = state.sparks.map(s=> ({...s, t: Math.max(0, s.t-0.06)})).filter(s=>s.t>0);
+
+  // 𝓡ₐ: adjust lattice based on spark distribution and event history
+  if(state.sparks.length){
+    let left=0,right=0,top=0,bottom=0;
+    for(const s of state.sparks){
+      if(s.x < grid/2) left++; else right++;
+      if(s.y < grid/2) top++; else bottom++;
+    }
+    const biasX = (right - left)/state.sparks.length;
+    const biasY = (bottom - top)/state.sparks.length;
+    const scale = Math.min(0.2, state.events/100) * (1 + state.timeField);
+    const dynamic = Array.from(SMOOTH_KERNEL);
+    dynamic[3] += biasX * scale;
+    dynamic[5] -= biasX * scale;
+    dynamic[1] += biasY * scale;
+    dynamic[7] -= biasY * scale;
+    state.customKernel = dynamic;
+    state.preset = "custom";
+  } else {
+    state.preset = state.basePreset;
+  }
 }
 
 export function drawToCanvas(state, canvas){
@@ -139,7 +194,8 @@ export function snapshot(state){
   return {
     shaped: Float32Array.from(state.shaped),
     res: state.lastRes,
-    events: state.events
+    events: state.events,
+    timeField: state.timeField
   };
 }
 
