@@ -109,9 +109,10 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, mu, onToggl
       const nextPoss = prev.possibilities.map((p, i) => {
         const noise = 0.1 * speed * (Math.random() - 0.5);
         const oscill = 0.15 * Math.sin(tt * 0.05 + i) * speed;
+        const influx = base * center + oscill + noise + balance * 0.5;
         const energy = Math.min(
           1,
-          Math.max(0, (base * center + oscill + noise + balance * 0.5) * (1 - mu))
+          Math.max(0, p.energy * (1 - mu) + influx)
         );
         const symmetry = Math.min(
           1,
