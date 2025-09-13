@@ -25,7 +25,7 @@ function UniverseCell({ seed, running, speed, grid, balance, friction, kernel, o
 }){
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<any>(null);
-  const [snap, setSnap] = useState<{t:number; energy:number}>({t:0, energy:0});
+  const [snap, setSnap] = useState<{t:number; energy:number; avgT:number}>({t:0, energy:0, avgT:0});
   const resThreshold = 0.7;
 
   const reset = useCallback(() => {
@@ -45,7 +45,7 @@ function UniverseCell({ seed, running, speed, grid, balance, friction, kernel, o
       sparks: [],
       events: 0,
     };
-    setSnap({t:0, energy:0});
+      setSnap({t:0, energy:0, avgT:0});
   }, [seed, grid, kernel, balance, friction]);
 
   useEffect(() => { reset(); }, [reset, resetSignal]);
@@ -57,7 +57,7 @@ function UniverseCell({ seed, running, speed, grid, balance, friction, kernel, o
       const st = stateRef.current;
       for(let i=0;i<Math.max(1,Math.floor(speed));i++) tick(st);
       drawToCanvas(st, canvasRef.current!);
-      setSnap({t: st.time, energy: st.lastRes});
+      setSnap({t: st.time, energy: st.lastRes, avgT: st.avgT ?? 0});
       onLatticeChange?.(Array.from(st.customKernel));
       raf = requestAnimationFrame(loop);
     };
@@ -83,7 +83,7 @@ function UniverseCell({ seed, running, speed, grid, balance, friction, kernel, o
       {mode !== "visual" && (
         <div className={mode === "both" ? "mt-3" : ""}>
           <LinePlot snapshot={snap} running={running} onHistory={onHistory} />
-          <div className="mt-2"><ResonanceMeter value={snap.energy} /></div>
+          <div className="mt-2"><ResonanceMeter value={snap.energy} time={snap.avgT} /></div>
         </div>
       )}
       {mode !== "visual" && (

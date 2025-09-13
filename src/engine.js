@@ -76,11 +76,23 @@ export function applyLattice(phi, grid, preset, customKernel){
   return shaped;
 }
 
-export function resonance(phi, shaped, t=0, tField=0){
-  const sim = cosineSim01(phi, shaped);
+export function resonance(phi, shaped, t=0, tField){
+  let dot=0, na=0, nb=0, avgT=0;
+  const N = phi.length;
+  for(let i=0;i<N;i++){
+    const w = tField ? 1 + tField[i] : 1;
+    const a = phi[i]*w;
+    const b = shaped[i]*w;
+    dot += a*b;
+    na += a*a;
+    nb += b*b;
+    if(tField) avgT += tField[i];
+  }
+  const sim = (na===0||nb===0)?0:((dot/Math.sqrt(na*nb))+1)/2;
   const tWeight = 0.5 + 0.5*Math.sin(t*0.1);
-  const res = sim * tWeight * (1 + tField);
-  return { sim, tWeight, tField, res };
+  const avg = tField ? avgT/N : 0;
+  const res = sim * tWeight * (1 + avg);
+  return { sim, tWeight, tField: avg, res };
 }
 
 export function tick(state){
@@ -100,7 +112,7 @@ export function tick(state){
   const prevMix = state.prevKernelMix ?? (state.kernelMix ?? 0);
   const prevShaped = state.prevShaped ?? state.shaped;
 
-  const stats0 = resonance(state.phi, state.shaped, state.time, state.timeField ?? 0);
+  const stats0 = resonance(state.phi, state.shaped, state.time, state.timeField);
   let triggered = false;
   if(stats0.res >= epsilon){
     state.events++;
@@ -141,19 +153,23 @@ export function tick(state){
       shapedNew[i] *= damp;
     }
   }
-  let deltaR = 0;
-  for(let i=0;i<shapedNew.length;i++){
-    deltaR += Math.abs(shapedNew[i] - prevShaped[i]);
-  }
-  deltaR /= shapedNew.length;
+  if(!state.timeField) state.timeField = new Float32Array(shapedNew.length);
   const deltaL = Math.abs(state.kernelMix - prevMix);
-  state.timeField = deltaL > 1e-6 ? deltaR / deltaL : 0;
+  let sumT = 0;
+  for(let i=0;i<shapedNew.length;i++){
+    const d = Math.abs(shapedNew[i] - prevShaped[i]);
+    const tVal = deltaL > 1e-6 ? d/deltaL : 0;
+    state.timeField[i] = tVal;
+    sumT += tVal;
+  }
+  state.avgT = sumT / shapedNew.length;
   state.shaped = shapedNew;
   state.prevShaped = Float32Array.from(shapedNew);
   state.prevKernelMix = state.kernelMix;
 
   const stats = resonance(state.phi, state.shaped, state.time, state.timeField);
   state.lastRes = stats.res;
+  state.avgT = stats.tField;
 }
 
 export function drawToCanvas(state, canvas){
@@ -167,7 +183,11 @@ export function drawToCanvas(state, canvas){
 
   for(let y=0;y<grid;y++){
     for(let x=0;x<grid;x++){
-      const v = state.shaped[y*grid+x];
+      const idx = y*grid+x;
+      let v = state.shaped[idx];
+      if(state.timeField){
+        v = Math.min(1, v*(1 + state.timeField[idx]));
+      }
       const lum = Math.max(0, Math.min(255, Math.floor(v*255)));
       ctx.fillStyle = `rgb(${lum},${Math.floor(lum*0.8)},${Math.floor(180+0.3*lum)})`;
       ctx.fillRect(x*cw, y*ch, cw+1, ch+1);
@@ -189,7 +209,7 @@ export function snapshot(state){
     shaped: Float32Array.from(state.shaped),
     res: state.lastRes,
     events: state.events,
-    tField: state.timeField
+    tField: state.timeField ? Float32Array.from(state.timeField) : undefined
   };
 }
 

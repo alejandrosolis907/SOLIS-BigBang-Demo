@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-type Snapshot = { t: number; energy: number };
+type Snapshot = { t: number; energy: number; avgT: number };
 
 export function LinePlot({
   snapshot,
