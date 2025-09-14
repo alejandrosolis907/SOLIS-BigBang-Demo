@@ -6,6 +6,8 @@ const gridEl = $("#grid");
 const speedEl = $("#speed");
 const presetEl = $("#preset");
 const muEl = $("#mu");
+const dimPhiEl = $("#dimPhi");
+const dimOmegaEl = $("#dimOmega");
 const kpiEvents = $("#kpiEvents");
 const kpiRes = $("#kpiRes");
 const kpiT = $("#kpiT");
@@ -58,7 +60,7 @@ kernelSmooth.addEventListener("click", ()=>{
   if(presetEl.value==="custom") applyGlobalParamChange();
 });
 
-function makeState({seed, grid, preset, mu}){
+function makeState({seed, grid, preset, mu, dimPhi, dimOmega}){
   return {
     seed, grid, preset,
     epsilon: 1.4,
@@ -71,6 +73,7 @@ function makeState({seed, grid, preset, mu}){
     mu: mu ?? 0,
     customKernel: customKernel.slice(),
     realityRatio: 0,
+    metaSpace: { dimPhi, dimOmega },
     // Timeline buffers
     timeline: [], // array of snapshots
     resSeries: [],
@@ -83,7 +86,9 @@ let params = {
   grid: Number(gridEl.value),
   preset: presetEl.value,
   speed: Number(speedEl.value),
-  mu: Number(muEl?.value ?? 0)
+  mu: Number(muEl?.value ?? 0),
+  dimPhi: Number(dimPhiEl?.value ?? 2),
+  dimOmega: Number(dimOmegaEl?.value ?? 3)
 };
 
 let running = true;
@@ -111,7 +116,9 @@ function applyGlobalParamChange(){
     grid: Number(gridEl.value),
     preset: presetEl.value,
     speed: Number(speedEl.value),
-    mu: Number(muEl?.value ?? 0)
+    mu: Number(muEl?.value ?? 0),
+    dimPhi: Number(dimPhiEl?.value ?? 2),
+    dimOmega: Number(dimOmegaEl?.value ?? 3)
   };
   for(let i=0;i<states.length;i++){
     const keepE = states[i].events;
@@ -131,6 +138,8 @@ gridEl.addEventListener("input", applyGlobalParamChange);
 presetEl.addEventListener("change", applyGlobalParamChange);
 speedEl.addEventListener("input", applyGlobalParamChange);
 if(muEl) muEl.addEventListener("input", applyGlobalParamChange);
+if(dimPhiEl) dimPhiEl.addEventListener("input", applyGlobalParamChange);
+if(dimOmegaEl) dimOmegaEl.addEventListener("input", applyGlobalParamChange);
 
 $("#startAll").addEventListener("click", ()=> running=true);
 $("#pauseAll").addEventListener("click", ()=> running=false);

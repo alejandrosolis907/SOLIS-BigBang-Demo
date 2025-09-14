@@ -12,6 +12,13 @@
 // Ω se modela como una constante absoluta en el motor.
 export const OMEGA = 1;
 
+// Axioma XII — Teorema de Contención Dimensional
+// metaSpace registra las dimensiones de Φ y Ω utilizadas por el motor.
+export const metaSpace = {
+  dimPhi: 2,
+  dimOmega: 3,
+};
+
 export class RNG {
   constructor(seed=1234){
     this.s = seed >>> 0;
@@ -103,6 +110,10 @@ export function resonance(phi, shaped, context=0){
 
 export function tick(state){
   const {grid, preset, epsilon, rng, drift, mu = 0, customKernel} = state;
+  const ms = state.metaSpace || metaSpace;
+  if(ms.dimOmega < ms.dimPhi + 1){
+    console.warn(`Axioma XII violado: dimΩ (${ms.dimOmega}) < dimΦ + 1 (${ms.dimPhi + 1})`);
+  }
   // remember original preset so feedback can modify and restore
   state.basePreset = state.basePreset ?? preset;
   for(let i=0;i<state.phi.length;i++){
