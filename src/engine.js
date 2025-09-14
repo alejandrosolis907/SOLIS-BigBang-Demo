@@ -8,6 +8,10 @@
 // R: rendered canvas state
 // 𝓡ₐ: feedback: R nudges 𝓛 over time
 
+// Axioma XI — coeficiente de proporcionalidad
+// Ω se modela como una constante absoluta en el motor.
+const OMEGA = 1;
+
 export class RNG {
   constructor(seed=1234){
     this.s = seed >>> 0;
@@ -114,6 +118,11 @@ export function tick(state){
       state.shaped[i] *= (1 - mu);
     }
   }
+  // Axioma XI: R como cociente Ω/(Φ∘𝓛)
+  let phiL = 0;
+  for(let i=0;i<state.shaped.length;i++){ phiL += state.shaped[i]; }
+  phiL /= state.shaped.length;
+  state.realityRatio = phiL !== 0 ? OMEGA / phiL : Infinity;
   // 𝓣: derivative of R with respect to lattice variation
   if(state.prevShaped){
     let diffR=0;

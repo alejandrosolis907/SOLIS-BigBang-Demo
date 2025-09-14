@@ -10,6 +10,7 @@ const kpiEvents = $("#kpiEvents");
 const kpiRes = $("#kpiRes");
 const kpiT = $("#kpiT");
 const kpiFrames = $("#kpiFrames");
+const kpiRatio = $("#kpiRatio");
 const bufferBar = $("#bufferBar");
 const c1 = $("#c1"), c2 = $("#c2"), c3 = $("#c3");
 const chart1=$("#chart1"), chart2=$("#chart2"), chart3=$("#chart3");
@@ -69,6 +70,7 @@ function makeState({seed, grid, preset, mu}){
     drift: 0.02,
     mu: mu ?? 0,
     customKernel: customKernel.slice(),
+    realityRatio: 0,
     // Timeline buffers
     timeline: [], // array of snapshots
     resSeries: [],
@@ -214,6 +216,8 @@ function loop(t){
   const resAvg = states.reduce((a,s)=> a+(s.lastRes||0), 0)/states.length;
   kpiEvents.textContent = String(ev);
   kpiRes.textContent = (resAvg||0).toFixed(2);
+  const ratioAvg = states.reduce((a,s)=> a+(s.realityRatio||0), 0)/states.length;
+  if(kpiRatio) kpiRatio.textContent = (ratioAvg||0).toFixed(2);
 
   drawCharts();
   requestAnimationFrame(loop);
