@@ -10,7 +10,7 @@
 
 // Axioma XI — coeficiente de proporcionalidad
 // Ω se modela como una constante absoluta en el motor.
-const OMEGA = 1;
+export const OMEGA = 1;
 
 export class RNG {
   constructor(seed=1234){

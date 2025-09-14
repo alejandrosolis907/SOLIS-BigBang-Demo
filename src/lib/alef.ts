@@ -10,6 +10,7 @@ export interface Alef {
   upperYud: number; // Ω
   vav: number;      // Φ ∘ 𝓛
   lowerYud: number; // R
+  ratio: number;    // Ω/(Φ ∘ 𝓛)
 }
 
 /**
@@ -25,8 +26,9 @@ export interface AlefState {
  * Derive Alef symbolic components from engine state.
  */
 export function computeAlef(state: AlefState): Alef {
-  const upperYud = clamp01(1 - state.timeField); // Ω : more silence when 𝓣 small
+  const upperYud = 1; // Ω constante
   const vav = clamp01(state.L.reduce((a, b) => a + b, 0) / state.L.length); // Φ∘𝓛
-  const lowerYud = clamp01(state.resonance * vav); // R as projection through 𝓛
-  return { upperYud, vav, lowerYud };
+  const lowerYud = clamp01(state.resonance); // R manifestado
+  const ratio = vav !== 0 ? upperYud / vav : 0;
+  return { upperYud, vav, lowerYud, ratio };
 }

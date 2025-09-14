@@ -7,11 +7,10 @@ type Props = {
   setTheta: (v: number) => void;
   metricsDelta: { dEntropy: number; dDensity: number; dClusters: number };
   onResetMetrics?: () => void;
-  alef?: { upperYud: number; vav: number; lowerYud: number };
-  realityRatio?: number;
+  alef?: { upperYud: number; vav: number; lowerYud: number; ratio: number };
 };
 
-export function SensitivityPanel({ L, setL, theta, setTheta, metricsDelta, onResetMetrics, alef, realityRatio }: Props) {
+export function SensitivityPanel({ L, setL, theta, setTheta, metricsDelta, onResetMetrics, alef }: Props) {
   const setIdx = (i: number, val: number) => {
     const next = [...L];
     next[i] = val;
@@ -46,7 +45,7 @@ export function SensitivityPanel({ L, setL, theta, setTheta, metricsDelta, onRes
         <div
           style={{
             display:"grid",
-            gridTemplateColumns:`repeat(${realityRatio !== undefined ? 4 : 3},1fr)`,
+            gridTemplateColumns:"repeat(4,1fr)",
             gap:8,
             marginTop:8
           }}
@@ -54,9 +53,7 @@ export function SensitivityPanel({ L, setL, theta, setTheta, metricsDelta, onRes
           <MiniStat label="Ω (Yud)" value={alef.upperYud} />
           <MiniStat label="Φ∘𝓛 (Vav)" value={alef.vav} />
           <MiniStat label="R (Yud)" value={alef.lowerYud} />
-          {typeof realityRatio === "number" && (
-            <MiniStat label="Ω/(Φ∘𝓛)" value={realityRatio} />
-          )}
+          <MiniStat label="Ω/(Φ∘𝓛)" value={alef.ratio} />
         </div>
       )}
     </div>
