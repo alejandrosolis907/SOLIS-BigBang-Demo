@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useSolisModel } from "./lib/solisModel";
 import type { Particle } from "./lib/resonance";
+import { computeAlef } from "./lib/alef";
 import { SensitivityPanel } from "./components/SensitivityPanel";
 import { ResonanceMeter } from "./components/ResonanceMeter";
 import { EventLog } from "./components/EventLog";
@@ -10,7 +11,9 @@ import { EventLog } from "./components/EventLog";
 export default function AppSolisExample() {
   const { L, setL, theta, setTheta,
     resonanceNow, pushParticles, tick,
-    metricsDelta, eventsLog, resetMetrics } = useSolisModel();
+    metricsDelta, eventsLog, resetMetrics,
+    timeField } = useSolisModel();
+  const alef = computeAlef({ L, resonance: resonanceNow, timeField });
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -40,6 +43,7 @@ export default function AppSolisExample() {
         setTheta={setTheta}
         metricsDelta={metricsDelta}
         onResetMetrics={resetMetrics}
+        alef={alef}
       />
       <EventLog events={eventsLog} />
       <div style={{opacity:0.7, fontSize:12}}>
