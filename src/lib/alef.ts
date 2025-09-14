@@ -1,4 +1,5 @@
 import { clamp01 } from "./resonance";
+import { OMEGA } from "../engine.js";
 
 /**
  * Representation of Alef (י–ו–י) linking Ω, Φ∘𝓛 and R.
@@ -26,9 +27,9 @@ export interface AlefState {
  * Derive Alef symbolic components from engine state.
  */
 export function computeAlef(state: AlefState): Alef {
-  const upperYud = 1; // Ω constante
+  const upperYud = OMEGA; // Ω constante
   const vav = clamp01(state.L.reduce((a, b) => a + b, 0) / state.L.length); // Φ∘𝓛
   const lowerYud = clamp01(state.resonance); // R manifestado
-  const ratio = vav !== 0 ? upperYud / vav : 0;
+  const ratio = vav !== 0 ? OMEGA / vav : 0;
   return { upperYud, vav, lowerYud, ratio };
 }
