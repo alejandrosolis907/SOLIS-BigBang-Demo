@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Particle, cosineSim01, computeMetrics, Vec } from "./resonance";
+import { useCallback, useRef, useState } from "react";
+import { Particle, cosineSim01, computeMetrics } from "./resonance";
 
 export type EventEpsilon = {
   t: number;
@@ -22,6 +22,9 @@ export function useSolisModel() {
   const [timeField, setTimeField] = useState<number>(0);
   // log de eventos ε
   const [eventsLog, setEventsLog] = useState<EventEpsilon[]>([]);
+  // Axioma XIII: vector unificado que muestra que todo proviene del mismo fondo
+  const [oneField, setOneField] = useState<number[]>([]);
+  const [oneMetrics, setOneMetrics] = useState({ entropy: 0, density: 0, clusters: 0 });
 
   const particlesRef = useRef<Particle[]>([]);
   const timeRef = useRef<number>(0);
@@ -61,6 +64,17 @@ export function useSolisModel() {
     if (events.length) {
       setEventsLog(prev => [...events, ...prev].slice(0, 200));
     }
+
+    // oneField: Φ promedio, 𝓛, ℜ promedio, ε normalizado y R resultante
+    const phiMean = P.length
+      ? P.reduce((s, p) => s + p.features.reduce((a, b) => a + b, 0), 0) /
+        (P.length * P[0].features.length)
+      : 0;
+    const epsVal = events.length / (P.length || 1);
+    const reality = avg * epsVal;
+    const unified = [phiMean, ...L, avg, epsVal, reality];
+    setOneField(unified);
+    setOneMetrics(computeMetrics(unified, theta));
   }, [L, theta]);
 
   const resetMetrics = useCallback(() => {
@@ -75,6 +89,7 @@ export function useSolisModel() {
     metricsDelta, resetMetrics,
     timeField,
     eventsLog,
+    oneField, oneMetrics,
     pushParticles, tick
   };
 }
