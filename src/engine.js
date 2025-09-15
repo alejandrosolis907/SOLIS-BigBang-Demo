@@ -8,6 +8,17 @@
 // R: rendered canvas state
 // 𝓡ₐ: feedback: R nudges 𝓛 over time
 
+// Axioma XI — coeficiente de proporcionalidad
+// Ω se modela como una constante absoluta en el motor.
+export const OMEGA = 1;
+
+// Axioma XII — Teorema de Contención Dimensional
+// metaSpace registra las dimensiones de Φ y Ω utilizadas por el motor.
+export const metaSpace = {
+  dimPhi: 2,
+  dimOmega: 3,
+};
+
 export class RNG {
   constructor(seed=1234){
     this.s = seed >>> 0;
@@ -99,6 +110,10 @@ export function resonance(phi, shaped, context=0){
 
 export function tick(state){
   const {grid, preset, epsilon, rng, drift, mu = 0, customKernel} = state;
+  const ms = state.metaSpace || metaSpace;
+  if(ms.dimOmega < ms.dimPhi + 1){
+    console.warn(`Axioma XII violado: dimΩ (${ms.dimOmega}) < dimΦ + 1 (${ms.dimPhi + 1})`);
+  }
   // remember original preset so feedback can modify and restore
   state.basePreset = state.basePreset ?? preset;
   for(let i=0;i<state.phi.length;i++){
@@ -114,7 +129,13 @@ export function tick(state){
       state.shaped[i] *= (1 - mu);
     }
   }
+  // Axioma XI: R como cociente Ω/(Φ∘𝓛)
+  let phiL = 0;
+  for(let i=0;i<state.shaped.length;i++){ phiL += state.shaped[i]; }
+  phiL /= state.shaped.length;
+  state.realityRatio = phiL !== 0 ? OMEGA / phiL : Infinity;
   // 𝓣: derivative of R with respect to lattice variation
+  // clampeamos Δ𝓛 con epsilonL para evitar escalada cuando Δ𝓛≈0 (Axioma IV)
   if(state.prevShaped){
     let diffR=0;
     for(let i=0;i<state.shaped.length;i++){
@@ -122,7 +143,8 @@ export function tick(state){
     }
     diffR /= state.shaped.length;
     const diffL = Math.abs((state.kernelMix ?? 0) - (state.prevKernelMix ?? state.kernelMix));
-    state.timeField = diffL>0 ? diffR/diffL : 0;
+    const epsilonL = 1e-6;
+    state.timeField = diffR / Math.max(diffL, epsilonL);
   } else {
     state.timeField = 0;
   }
