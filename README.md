@@ -8,6 +8,9 @@ Este proyecto es un ejemplo mínimo que combina **React**, **Vite**, **Tailwind 
 3. Compila la aplicación: `npm run build`
 4. Inicia el servidor: `npm start`
 
+## Parámetro μ
+El panel de sensibilidad expone **μ**, la fricción ontológica descrita en el Axioma IX. Un valor mayor de μ atenúa cada tic tanto al campo de potenciales Φ como a la estructura 𝓛, lo que reduce las métricas de resonancia y la intensidad mostrada en la visualización.
+
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
 - La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).

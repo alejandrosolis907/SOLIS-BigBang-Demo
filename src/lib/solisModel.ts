@@ -11,6 +11,8 @@ export type EventEpsilon = {
 export function useSolisModel() {
   // 𝓛(x): pesos/operador (3 dimensiones por defecto)
   const [L, setL] = useState<number[]>([0.6, 0.3, 0.1]);
+  // μ: fricción ontológica (Axioma IX)
+  const [mu, setMu] = useState<number>(0);
   // θ: umbral de evento
   const [theta, setTheta] = useState<number>(0.8);
   // resonancia actual promedio (para el medidor)
@@ -37,8 +39,20 @@ export function useSolisModel() {
   // tick: avanza 𝓣, evalúa ℜ y dispara ε si ℜ ≥ θ
   const tick = useCallback(() => {
     timeRef.current += 1;
-    const P = particlesRef.current;
-    const res = P.map(p => cosineSim01(p.features, L));
+    let P = particlesRef.current;
+
+    // Axioma IX: la fricción μ atenúa Φ y 𝓛
+    if (mu > 0) {
+      P = P.map(p => ({
+        ...p,
+        features: p.features.map(f => f * (1 - mu)),
+      }));
+      particlesRef.current = P;
+    }
+    const LNow = mu > 0 ? L.map(v => v * (1 - mu)) : L;
+    if (mu > 0) setL(LNow);
+
+    const res = P.map(p => cosineSim01(p.features, LNow));
     const avg = res.length ? res.reduce((a,b)=>a+b,0)/res.length : 0;
     setResonanceNow(avg);
 
@@ -58,7 +72,7 @@ export function useSolisModel() {
     P.forEach((p, i) => {
       const r = res[i];
       if (r >= effectiveTheta) {
-        events.push({ t: timeRef.current, id: p.id, r, L: [...L] });
+        events.push({ t: timeRef.current, id: p.id, r, L: [...LNow] });
       }
     });
     if (events.length) {
@@ -72,10 +86,10 @@ export function useSolisModel() {
       : 0;
     const epsVal = events.length / (P.length || 1);
     const reality = avg * epsVal;
-    const unified = [phiMean, ...L, avg, epsVal, reality];
+    const unified = [phiMean, ...LNow, avg, epsVal, reality];
     setOneField(unified);
     setOneMetrics(computeMetrics(unified, theta));
-  }, [L, theta]);
+  }, [L, theta, mu]);
 
   const resetMetrics = useCallback(() => {
     lastMetricsRef.current = { entropy: 0, density: 0, clusters: 0 };
@@ -85,6 +99,7 @@ export function useSolisModel() {
 
   return {
     L, setL, theta, setTheta,
+    mu, setMu,
     resonanceNow,
     metricsDelta, resetMetrics,
     timeField,

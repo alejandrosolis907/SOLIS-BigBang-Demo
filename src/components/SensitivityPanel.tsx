@@ -5,6 +5,8 @@ type Props = {
   setL: (v: number[]) => void;
   theta: number;
   setTheta: (v: number) => void;
+  mu: number;
+  setMu: (v: number) => void;
   metricsDelta: { dEntropy: number; dDensity: number; dClusters: number };
   onResetMetrics?: () => void;
   alef?: { upperYud: number; vav: number; lowerYud: number; ratio: number };
@@ -12,7 +14,7 @@ type Props = {
   oneMetrics?: { entropy: number; density: number; clusters: number };
 };
 
-export function SensitivityPanel({ L, setL, theta, setTheta, metricsDelta, onResetMetrics, alef, oneField, oneMetrics }: Props) {
+export function SensitivityPanel({ L, setL, theta, setTheta, mu, setMu, metricsDelta, onResetMetrics, alef, oneField, oneMetrics }: Props) {
   const [showUnified, setShowUnified] = useState(false);
   const setIdx = (i: number, val: number) => {
     const next = [...L];
@@ -37,6 +39,11 @@ export function SensitivityPanel({ L, setL, theta, setTheta, metricsDelta, onRes
         <span>θ (umbral)</span>
         <input type="range" min={0} max={1} step={0.01} value={theta} onChange={e=>setTheta(parseFloat(e.target.value))} />
         <code>{theta.toFixed(2)}</code>
+      </div>
+      <div style={{display:"grid", gridTemplateColumns:"90px 1fr 60px", gap:8, alignItems:"center"}}>
+        <span>μ (fricción)</span>
+        <input type="range" min={0} max={0.5} step={0.01} value={mu} onChange={e=>setMu(parseFloat(e.target.value))} />
+        <code>{mu.toFixed(2)}</code>
       </div>
       {!showUnified && (
         <>
