@@ -135,6 +135,7 @@ export function tick(state){
   phiL /= state.shaped.length;
   state.realityRatio = phiL !== 0 ? OMEGA / phiL : Infinity;
   // 𝓣: derivative of R with respect to lattice variation
+  // clampeamos Δ𝓛 con epsilonL para evitar escalada cuando Δ𝓛≈0 (Axioma IV)
   if(state.prevShaped){
     let diffR=0;
     for(let i=0;i<state.shaped.length;i++){
@@ -142,7 +143,8 @@ export function tick(state){
     }
     diffR /= state.shaped.length;
     const diffL = Math.abs((state.kernelMix ?? 0) - (state.prevKernelMix ?? state.kernelMix));
-    state.timeField = diffL>0 ? diffR/diffL : 0;
+    const epsilonL = 1e-6;
+    state.timeField = diffR / Math.max(diffL, epsilonL);
   } else {
     state.timeField = 0;
   }
