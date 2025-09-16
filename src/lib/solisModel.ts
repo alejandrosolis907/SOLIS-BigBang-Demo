@@ -8,11 +8,11 @@ export type EventEpsilon = {
   L: number[]; // snapshot
 };
 
-export function useSolisModel() {
+export function useSolisModel(initialMu = 0) {
   // 𝓛(x): pesos/operador (3 dimensiones por defecto)
   const [L, setL] = useState<number[]>([0.6, 0.3, 0.1]);
   // μ₀: fricción ontológica base (Axioma IX)
-  const [mu, setMu] = useState<number>(0);
+  const [mu, setMu] = useState<number>(initialMu);
   // θ: umbral de evento
   const [theta, setTheta] = useState<number>(0.8);
   // resonancia actual promedio (para el medidor)
@@ -97,7 +97,7 @@ export function useSolisModel() {
     const unified = [phiMean, ...LNow, avg, epsVal, reality];
     setOneField(unified);
     setOneMetrics(computeMetrics(unified, theta));
-  }, [L, theta, muEffective]);
+  }, [L, theta, mu, muEffective]);
 
   const resetMetrics = useCallback(() => {
     lastMetricsRef.current = { entropy: 0, density: 0, clusters: 0 };
