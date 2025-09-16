@@ -74,6 +74,7 @@ function makeState({seed, grid, preset, mu, dimPhi, dimOmega}){
     customKernel: customKernel.slice(),
     realityRatio: 0,
     metaSpace: { dimPhi, dimOmega },
+    areaLaw: null,
     // Timeline buffers
     timeline: [], // array of snapshots
     resSeries: [],

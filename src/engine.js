@@ -1,3 +1,5 @@
+import { computeAreaLaw } from "./metrics.ts";
+
 // BigBang_PLUS engine — maps UI concepts to SOLIS axioms
 // Ω: not modeled
 // Φ: stochastic potential field derived from seed
@@ -285,6 +287,12 @@ export function tick(state){
     for(let i=0;i<state.shaped.length;i++){
       state.shaped[i] *= (1 - mu);
     }
+  }
+
+  if (state.shaped && state.shaped.length === grid * grid) {
+    state.areaLaw = computeAreaLaw(state.shaped, grid);
+  } else {
+    state.areaLaw = state.areaLaw ?? null;
   }
   // Axioma XI: R como cociente Ω/(Φ∘𝓛)
   let phiL = 0;

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { computeAreaLaw, type AreaLawMetrics } from "../metrics";
 import { Particle, cosineSim01, computeMetrics } from "./resonance";
 
 const SMOOTH_KERNEL = [
@@ -244,6 +245,7 @@ export function useSolisModel(initialMu = 0) {
   // Axioma XIII: vector unificado que muestra que todo proviene del mismo fondo
   const [oneField, setOneField] = useState<number[]>([]);
   const [oneMetrics, setOneMetrics] = useState({ entropy: 0, density: 0, clusters: 0 });
+  const [areaLawMetrics, setAreaLawMetrics] = useState<AreaLawMetrics | null>(null);
   // 𝓡ₐ: intensidad de retroalimentación de R sobre 𝓛
   const [raGain, setRaGain] = useState<number>(0);
   // modo holográfico
@@ -293,12 +295,19 @@ export function useSolisModel(initialMu = 0) {
       setHolographicBulk(prev => (arraysClose(prev, holo.bulk) ? prev : [...holo.bulk]));
       holographicFieldRef.current = holo.field;
       setHolographicGrid(prev => (prev === holo.grid ? prev : holo.grid));
+      if (holo.field?.length && holo.grid > 0) {
+        const referenceField = holo.field[0];
+        setAreaLawMetrics(computeAreaLaw(referenceField, holo.grid));
+      } else {
+        setAreaLawMetrics(null);
+      }
     } else {
       setHolographicBulk(prev => (arraysClose(prev, L) ? prev : [...L]));
       if (holographicFieldRef.current !== null) {
         holographicFieldRef.current = null;
       }
       setHolographicGrid(prev => (prev === 0 ? prev : 0));
+      setAreaLawMetrics(null);
     }
 
     const res = P.map(p => cosineSim01(p.features, LNow));
@@ -412,6 +421,7 @@ export function useSolisModel(initialMu = 0) {
     holographicBulk,
     holographicField: holographicFieldRef.current,
     holographicGrid,
+    areaLawMetrics,
     pushParticles, tick
   };
 }
