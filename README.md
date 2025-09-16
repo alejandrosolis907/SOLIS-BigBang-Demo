@@ -13,6 +13,11 @@ El panel de sensibilidad expone **μ₀**, la fricción ontológica base descrit
 
 De esta forma la atenuación de cada tic solo afecta al campo de potenciales Φ, pero crece proporcionalmente con la estructura limitante. 𝓛 permanece fija, aunque el incremento de su intensidad fortalece la fricción total `μΣ = μ₀ + μ𝓛`, reduciendo las métricas de resonancia y la energía visible.
 
+### Alcance de la fricción μ
+
+- `μ` únicamente amortigua las características de las partículas (Φ) durante cada `tick`.
+- La lattice 𝓛 no se escala ni se modifica por efecto de `μ`; su intensidad solo contribuye al componente estructural `μ𝓛` que se suma a la fricción efectiva.
+
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
 - La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).

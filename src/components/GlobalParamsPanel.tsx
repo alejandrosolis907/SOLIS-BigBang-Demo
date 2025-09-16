@@ -75,7 +75,7 @@ export function GlobalParamsPanel({
         <div className="text-xs mt-1">{balance.toFixed(2)}</div>
       </label>
       <label className="block text-sm">
-        Fricción μ
+        Fricción μ (solo sobre Φ)
         <input
           type="range"
           min={0}
@@ -85,7 +85,9 @@ export function GlobalParamsPanel({
           value={mu}
           onChange={(e) => setMu(parseFloat(e.target.value))}
         />
-        <div className="text-xs mt-1">{mu.toFixed(2)}</div>
+        <div className="text-xs mt-1">
+          {mu.toFixed(2)} — aplica únicamente a las características de las partículas Φ
+        </div>
         {typeof muStructural === "number" && (
           <div className="text-xs mt-1 text-slate-400">
             μ𝓛 ≈ {muStructural.toFixed(3)}
