@@ -1,4 +1,9 @@
 import { computeAreaLaw } from "./metrics.ts";
+import {
+  captureSample,
+  trainDecoder,
+  evaluateReconstruction,
+} from "./reconstruction.ts";
 
 // BigBang_PLUS engine — maps UI concepts to SOLIS axioms
 // Ω: not modeled
@@ -222,6 +227,30 @@ function propagateBoundaryLattice(state){
   return lattice;
 }
 
+const DEFAULT_RECON_STATE = () => ({
+  samples: [],
+  lastSample: null,
+  model: null,
+  pendingFreeze: false,
+  pendingTrain: null,
+  coverage: 1,
+  mode: "contiguous",
+  offset: 0,
+  metrics: null,
+  maskedBoundary: null,
+  predicted: null,
+  mask: null,
+  status: "idle",
+  recalcPending: false,
+});
+
+function ensureReconstructionState(state){
+  if (!state.reconstruction) {
+    state.reconstruction = DEFAULT_RECON_STATE();
+  }
+  return state.reconstruction;
+}
+
 export function applyLattice(phi, grid, preset, customKernel, mix=0){
   // blend smooth/rigid kernels according to mix (𝓡ₐ feedback)
   const blended = SMOOTH_KERNEL.map((s,i)=> s*(1-mix) + RIGID_KERNEL[i]*mix);
@@ -266,6 +295,7 @@ export function tick(state){
   if(ms.dimOmega < ms.dimPhi + 1){
     console.warn(`Axioma XII violado: dimΩ (${ms.dimOmega}) < dimΦ + 1 (${ms.dimPhi + 1})`);
   }
+  const recon = ensureReconstructionState(state);
   // remember original preset so feedback can modify and restore
   state.basePreset = state.basePreset ?? preset;
   for(let i=0;i<state.phi.length;i++){
@@ -280,8 +310,27 @@ export function tick(state){
     const lattice = propagateBoundaryLattice(state);
     const holoKernel = blendKernel(state.boundaryKernelMix ?? 0);
     state.shaped = applyKernel(lattice, grid, holoKernel);
+    if (recon.pendingFreeze) {
+      if (lattice && lattice.length === grid * grid) {
+        const sample = captureSample(lattice, grid);
+        recon.samples.push(sample);
+        if (recon.samples.length > 128) {
+          recon.samples.shift();
+        }
+        recon.lastSample = sample;
+        recon.status = `Muestra holográfica capturada (N=${recon.samples.length})`;
+        recon.recalcPending = true;
+      } else {
+        recon.status = "No se pudo capturar el bulk holográfico actual";
+      }
+      recon.pendingFreeze = false;
+    }
   } else {
     state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
+    if (recon.pendingFreeze) {
+      recon.status = "Activa el modo holográfico para congelar el bulk";
+      recon.pendingFreeze = false;
+    }
   }
   if(mu>0){
     for(let i=0;i<state.shaped.length;i++){
@@ -293,6 +342,75 @@ export function tick(state){
     state.areaLaw = computeAreaLaw(state.shaped, grid);
   } else {
     state.areaLaw = state.areaLaw ?? null;
+  }
+
+  if (recon.pendingTrain) {
+    const boundarySize = grid * 4 - 4;
+    if (boundarySize <= 0) {
+      recon.status = "La grilla es demasiado pequeña para entrenar un decodificador";
+      recon.model = null;
+      recon.metrics = null;
+      recon.maskedBoundary = null;
+      recon.predicted = null;
+      recon.mask = null;
+      recon.pendingTrain = null;
+    } else {
+      const candidates = recon.samples.filter(sample => sample.boundary.length === boundarySize);
+      if (candidates.length === 0) {
+        recon.status = "No hay muestras compatibles con la grilla actual";
+        recon.model = null;
+        recon.metrics = null;
+        recon.maskedBoundary = null;
+        recon.predicted = null;
+        recon.mask = null;
+      } else {
+        try {
+          recon.model = trainDecoder(candidates, recon.pendingTrain);
+          recon.status = `Decodificador ${recon.model.type} entrenado (${candidates.length} muestras)`;
+          recon.recalcPending = true;
+        } catch (err) {
+          recon.status = `Error al entrenar: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      }
+      recon.pendingTrain = null;
+    }
+  }
+
+  if (recon.model) {
+    const targetSample = (() => {
+      const expected = recon.model.inputSize;
+      for (let i = recon.samples.length - 1; i >= 0; i--) {
+        const sample = recon.samples[i];
+        if (sample.boundary.length === expected) {
+          return sample;
+        }
+      }
+      return null;
+    })();
+    if (targetSample) {
+      recon.lastSample = targetSample;
+      if (recon.recalcPending || !recon.metrics) {
+        try {
+          const result = evaluateReconstruction(targetSample, recon.model, {
+            coverage: recon.coverage,
+            mode: recon.mode,
+            offset: recon.offset,
+          });
+          recon.metrics = result.metrics;
+          recon.maskedBoundary = result.maskedBoundary;
+          recon.predicted = result.predicted;
+          recon.mask = result.mask;
+          recon.recalcPending = false;
+        } catch (err) {
+          recon.status = `Error al evaluar: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      }
+    } else {
+      recon.metrics = null;
+      recon.maskedBoundary = null;
+      recon.predicted = null;
+      recon.mask = null;
+    }
   }
   // Axioma XI: R como cociente Ω/(Φ∘𝓛)
   let phiL = 0;
@@ -411,4 +529,45 @@ export function drawSeries(canvas, series, color="rgba(57,192,186,1)"){
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.stroke();
+}
+
+export function requestHolographicFreeze(state){
+  const recon = ensureReconstructionState(state);
+  recon.pendingFreeze = true;
+  return recon;
+}
+
+export function clearReconstruction(state){
+  const recon = ensureReconstructionState(state);
+  recon.samples = [];
+  recon.lastSample = null;
+  recon.model = null;
+  recon.metrics = null;
+  recon.maskedBoundary = null;
+  recon.predicted = null;
+  recon.mask = null;
+  recon.status = "Reconstrucción reiniciada";
+  recon.recalcPending = false;
+  return recon;
+}
+
+export function trainReconstructionModel(state, options={}){
+  const recon = ensureReconstructionState(state);
+  recon.pendingTrain = { ...options };
+  return recon;
+}
+
+export function setReconstructionCoverage(state, coverage, mode, offset){
+  const recon = ensureReconstructionState(state);
+  recon.coverage = Math.max(0, Math.min(1, coverage ?? recon.coverage));
+  if (mode) recon.mode = mode;
+  if (typeof offset === "number") {
+    recon.offset = Math.max(0, Math.min(1, offset));
+  }
+  recon.recalcPending = true;
+  return recon.coverage;
+}
+
+export function getReconstructionState(state){
+  return ensureReconstructionState(state);
 }
