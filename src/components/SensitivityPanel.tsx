@@ -7,6 +7,8 @@ type Props = {
   setTheta: (v: number) => void;
   mu: number;
   setMu: (v: number) => void;
+  muStructural?: number;
+  muEffective?: number;
   metricsDelta: { dEntropy: number; dDensity: number; dClusters: number };
   onResetMetrics?: () => void;
   alef?: { upperYud: number; vav: number; lowerYud: number; ratio: number };
@@ -14,7 +16,7 @@ type Props = {
   oneMetrics?: { entropy: number; density: number; clusters: number };
 };
 
-export function SensitivityPanel({ L, setL, theta, setTheta, mu, setMu, metricsDelta, onResetMetrics, alef, oneField, oneMetrics }: Props) {
+export function SensitivityPanel({ L, setL, theta, setTheta, mu, setMu, muStructural, muEffective, metricsDelta, onResetMetrics, alef, oneField, oneMetrics }: Props) {
   const [showUnified, setShowUnified] = useState(false);
   const setIdx = (i: number, val: number) => {
     const next = [...L];
@@ -41,11 +43,29 @@ export function SensitivityPanel({ L, setL, theta, setTheta, mu, setMu, metricsD
         <code>{theta.toFixed(2)}</code>
       </div>
       <div style={{display:"grid", gridTemplateColumns:"90px 1fr 60px", gap:8, alignItems:"center"}}>
-        <span>μ (fricción)</span>
+        <span>μ₀ (base)</span>
         <input type="range" min={0} max={0.5} step={0.01} value={mu} onChange={e=>setMu(parseFloat(e.target.value))} />
         <code>{mu.toFixed(2)}</code>
       </div>
-      <small style={{color:"#aaa"}}>Atenúa Φ en cada tic; 𝓛 permanece fija.</small>
+      {typeof muStructural === "number" && (
+        <div style={{display:"grid", gridTemplateColumns:"90px 1fr 60px", gap:8, alignItems:"center"}}>
+          <span>μ𝓛 (estructura)</span>
+          <div style={{height:4, background:"#333", position:"relative", borderRadius:2}}>
+            <div style={{position:"absolute", left:0, top:0, bottom:0, width:`${Math.min(1, muStructural / 0.5) * 100}%`, background:"#7dd3fc", borderRadius:2}} />
+          </div>
+          <code>{muStructural.toFixed(2)}</code>
+        </div>
+      )}
+      {typeof muEffective === "number" && (
+        <div style={{display:"grid", gridTemplateColumns:"90px 1fr 60px", gap:8, alignItems:"center"}}>
+          <span>μΣ (total)</span>
+          <div style={{height:4, background:"#333", position:"relative", borderRadius:2}}>
+            <div style={{position:"absolute", left:0, top:0, bottom:0, width:`${Math.min(1, muEffective / 0.95) * 100}%`, background:"#34d399", borderRadius:2}} />
+          </div>
+          <code>{muEffective.toFixed(2)}</code>
+        </div>
+      )}
+      <small style={{color:"#aaa"}}>La fricción total surge de μ₀ más la resistencia estructural de 𝓛; solo Φ se atenúa.</small>
       {!showUnified && (
         <>
           <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8}}>

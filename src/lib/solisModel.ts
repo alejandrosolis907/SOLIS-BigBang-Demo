@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Particle, cosineSim01, computeMetrics } from "./resonance";
 
 export type EventEpsilon = {
@@ -11,7 +11,7 @@ export type EventEpsilon = {
 export function useSolisModel() {
   // 𝓛(x): pesos/operador (3 dimensiones por defecto)
   const [L, setL] = useState<number[]>([0.6, 0.3, 0.1]);
-  // μ: fricción ontológica (Axioma IX)
+  // μ₀: fricción ontológica base (Axioma IX)
   const [mu, setMu] = useState<number>(0);
   // θ: umbral de evento
   const [theta, setTheta] = useState<number>(0.8);
@@ -31,6 +31,14 @@ export function useSolisModel() {
   const particlesRef = useRef<Particle[]>([]);
   const timeRef = useRef<number>(0);
 
+  // congruencia 𝓛 ↔ μ: la estructura aumenta la fricción efectiva
+  const structuralIntensity = useMemo(() => {
+    if (!L.length) return 0;
+    return L.reduce((sum, value) => sum + Math.abs(value), 0) / L.length;
+  }, [L]);
+  const structuralMu = structuralIntensity * 0.35;
+  const muEffective = Math.min(0.95, mu + structuralMu);
+
   // permite empujar el último conjunto de partículas (tu simulación)
   const pushParticles = useCallback((particles: Particle[]) => {
     particlesRef.current = particles;
@@ -41,11 +49,12 @@ export function useSolisModel() {
     timeRef.current += 1;
     let P = particlesRef.current;
 
-    // Axioma IX: la fricción μ atenúa únicamente Φ (partículas)
-    if (mu > 0) {
+    // Axioma IX: la fricción μ, modulada por la intensidad de 𝓛, atenúa Φ
+    const muApplied = muEffective;
+    if (muApplied > 0) {
       P = P.map(p => ({
         ...p,
-        features: p.features.map(f => f * (1 - mu)),
+        features: p.features.map(f => f * Math.max(0, 1 - muApplied)),
       }));
       particlesRef.current = P;
     }
@@ -88,7 +97,7 @@ export function useSolisModel() {
     const unified = [phiMean, ...LNow, avg, epsVal, reality];
     setOneField(unified);
     setOneMetrics(computeMetrics(unified, theta));
-  }, [L, theta, mu]);
+  }, [L, theta, muEffective]);
 
   const resetMetrics = useCallback(() => {
     lastMetricsRef.current = { entropy: 0, density: 0, clusters: 0 };
@@ -99,6 +108,8 @@ export function useSolisModel() {
   return {
     L, setL, theta, setTheta,
     mu, setMu,
+    muStructural: structuralMu,
+    muEffective,
     resonanceNow,
     metricsDelta, resetMetrics,
     timeField,

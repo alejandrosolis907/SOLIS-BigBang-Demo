@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { exportGridPng } from "./utils/capture";
 import { LinePlot } from "./components/LinePlot";
 import { PhiCanvas, type Snapshot as PhiSnapshot } from "./components/PhiCanvas";
@@ -219,6 +219,14 @@ export default function App(){
   const [mu, setMu] = useState(0);
   const [kernel, setKernel] = useState<number[]>([0,-1,0,-1,5,-1,0,-1,0]);
 
+  const kernelIntensity = useMemo(() => {
+    if (!kernel.length) return 0;
+    const magnitude = kernel.reduce((sum, value) => sum + Math.abs(value), 0);
+    return magnitude / kernel.length;
+  }, [kernel]);
+  const muStructural = Math.min(0.5, kernelIntensity * 0.12);
+  const muEffective = Math.min(0.9, mu + muStructural);
+
   const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
   const [resetSignals, setResetSignals] = useState<number[]>(() => Array.from({length: COUNT}, ()=> 0));
@@ -282,6 +290,8 @@ export default function App(){
             setBalance={setBalance}
             mu={mu}
             setMu={setMu}
+            muStructural={muStructural}
+            muEffective={muEffective}
           />
           <KernelEditor kernel={kernel} setKernel={setKernel} />
         </aside>
@@ -297,7 +307,7 @@ export default function App(){
                   grid={gridSize}
                   balance={balance}
                   kernel={kernel}
-                  mu={mu}
+                  mu={muEffective}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
                   onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
                   onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
@@ -317,7 +327,7 @@ export default function App(){
                   grid={gridSize}
                   balance={balance}
                   kernel={kernel}
-                  mu={mu}
+                  mu={muEffective}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
                   onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
                   onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}

@@ -11,6 +11,8 @@ export function GlobalParamsPanel({
   setBalance,
   mu,
   setMu,
+  muStructural,
+  muEffective,
 }: {
   seedBase: number;
   setSeedBase: (v: number) => void;
@@ -22,6 +24,8 @@ export function GlobalParamsPanel({
   setBalance: (v: number) => void;
   mu: number;
   setMu: (v: number) => void;
+  muStructural?: number;
+  muEffective?: number;
 }) {
   return (
     <div className="bg-slate-900/70 rounded-2xl p-4 space-y-4">
@@ -82,6 +86,16 @@ export function GlobalParamsPanel({
           onChange={(e) => setMu(parseFloat(e.target.value))}
         />
         <div className="text-xs mt-1">{mu.toFixed(2)}</div>
+        {typeof muStructural === "number" && (
+          <div className="text-xs mt-1 text-slate-400">
+            μ𝓛 ≈ {muStructural.toFixed(3)}
+          </div>
+        )}
+        {typeof muEffective === "number" && (
+          <div className="text-xs text-emerald-300">
+            μΣ ≈ {(muEffective).toFixed(3)}
+          </div>
+        )}
       </label>
     </div>
   );
