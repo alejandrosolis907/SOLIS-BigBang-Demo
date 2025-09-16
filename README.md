@@ -18,6 +18,12 @@ De esta forma la atenuación de cada tic solo afecta al campo de potenciales Φ,
 - `μ` únicamente amortigua las características de las partículas (Φ) durante cada `tick`.
 - La lattice 𝓛 no se escala ni se modifica por efecto de `μ`; su intensidad solo contribuye al componente estructural `μ𝓛` que se suma a la fricción efectiva.
 
+## Retroalimentación 𝓡ₐ sobre 𝓛
+
+- El modelo analítico ofrece un control `𝓡ₐ` que regula cómo la realidad manifestada (R) retroajusta la estructura limitante 𝓛.
+- Al aumentar `𝓡ₐ`, la lattice se aproxima gradualmente al promedio de las características Φ que generan eventos ε, ponderado por la resonancia y el campo temporal `𝓣`.
+- Con `𝓡ₐ = 0` la estructura permanece fija; valores mayores permiten estudiar el Axioma VIII (realidad autoactualizable) sin romper la independencia de la fricción, que sigue actuando únicamente sobre Φ.
+
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
 - La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).

@@ -27,6 +27,8 @@ export function useSolisModel(initialMu = 0) {
   // Axioma XIII: vector unificado que muestra que todo proviene del mismo fondo
   const [oneField, setOneField] = useState<number[]>([]);
   const [oneMetrics, setOneMetrics] = useState({ entropy: 0, density: 0, clusters: 0 });
+  // 𝓡ₐ: intensidad de retroalimentación de R sobre 𝓛
+  const [raGain, setRaGain] = useState<number>(0);
 
   const particlesRef = useRef<Particle[]>([]);
   const timeRef = useRef<number>(0);
@@ -74,6 +76,20 @@ export function useSolisModel(initialMu = 0) {
     setTimeField(tField);
     lastMetricsRef.current = m;
 
+    const dims = LNow.length;
+    let phiMeanVector: number[] = [];
+    if (dims && P.length) {
+      const sums = new Array(dims).fill(0);
+      P.forEach(p => {
+        for (let i = 0; i < dims; i++) {
+          sums[i] += p.features[i] ?? 0;
+        }
+      });
+      phiMeanVector = sums.map(sum => sum / P.length);
+    } else if (dims) {
+      phiMeanVector = new Array(dims).fill(0);
+    }
+
     // eventos ε (dispara para las partículas que cruzan θ)
     const events: EventEpsilon[] = [];
     const effectiveTheta = theta * (1 + timeField);
@@ -88,16 +104,34 @@ export function useSolisModel(initialMu = 0) {
     }
 
     // oneField: Φ promedio, 𝓛, ℜ promedio, ε normalizado y R resultante
-    const phiMean = P.length
-      ? P.reduce((s, p) => s + p.features.reduce((a, b) => a + b, 0), 0) /
-        (P.length * P[0].features.length)
+    const phiMean = phiMeanVector.length
+      ? phiMeanVector.reduce((a, b) => a + b, 0) / phiMeanVector.length
       : 0;
     const epsVal = events.length / (P.length || 1);
     const reality = avg * epsVal;
     const unified = [phiMean, ...LNow, avg, epsVal, reality];
     setOneField(unified);
     setOneMetrics(computeMetrics(unified, theta));
-  }, [L, theta, mu, muEffective]);
+
+    if (raGain > 0 && phiMeanVector.length) {
+      const feedbackDriver = Math.min(1, Math.max(0, reality + tField));
+      if (feedbackDriver > 0) {
+        const phiVectorSnapshot = [...phiMeanVector];
+        setL(prev => {
+          if (!prev.length) return prev;
+          let changed = false;
+          const updated = prev.map((value, i) => {
+            const target = phiVectorSnapshot[i] ?? value;
+            const candidate = value + (target - value) * feedbackDriver * raGain;
+            const next = Math.max(0, Math.min(1, candidate));
+            if (Math.abs(next - value) > 1e-5) changed = true;
+            return next;
+          });
+          return changed ? updated : prev;
+        });
+      }
+    }
+  }, [L, theta, mu, muEffective, raGain]);
 
   const resetMetrics = useCallback(() => {
     lastMetricsRef.current = { entropy: 0, density: 0, clusters: 0 };
@@ -108,6 +142,7 @@ export function useSolisModel(initialMu = 0) {
   return {
     L, setL, theta, setTheta,
     mu, setMu,
+    raGain, setRaGain,
     muStructural: structuralMu,
     muEffective,
     resonanceNow,
