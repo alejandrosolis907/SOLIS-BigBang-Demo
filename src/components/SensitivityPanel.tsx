@@ -45,6 +45,7 @@ export function SensitivityPanel({ L, setL, theta, setTheta, mu, setMu, metricsD
         <input type="range" min={0} max={0.5} step={0.01} value={mu} onChange={e=>setMu(parseFloat(e.target.value))} />
         <code>{mu.toFixed(2)}</code>
       </div>
+      <small style={{color:"#aaa"}}>Atenúa Φ en cada tic; 𝓛 permanece fija.</small>
       {!showUnified && (
         <>
           <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8}}>

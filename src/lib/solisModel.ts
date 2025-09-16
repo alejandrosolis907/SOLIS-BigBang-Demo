@@ -41,7 +41,7 @@ export function useSolisModel() {
     timeRef.current += 1;
     let P = particlesRef.current;
 
-    // Axioma IX: la fricción μ atenúa Φ y 𝓛
+    // Axioma IX: la fricción μ atenúa únicamente Φ (partículas)
     if (mu > 0) {
       P = P.map(p => ({
         ...p,
@@ -49,8 +49,7 @@ export function useSolisModel() {
       }));
       particlesRef.current = P;
     }
-    const LNow = mu > 0 ? L.map(v => v * (1 - mu)) : L;
-    if (mu > 0) setL(LNow);
+    const LNow = L;
 
     const res = P.map(p => cosineSim01(p.features, LNow));
     const avg = res.length ? res.reduce((a,b)=>a+b,0)/res.length : 0;
