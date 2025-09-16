@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { HolographicControls } from "../ui/controls";
 
 type Props = {
   L: number[];
@@ -16,6 +17,14 @@ type Props = {
   alef?: { upperYud: number; vav: number; lowerYud: number; ratio: number };
   oneField?: number[];
   oneMetrics?: { entropy: number; density: number; clusters: number };
+  holographicMode?: boolean;
+  setHolographicMode?: (value: boolean) => void;
+  boundaryDepth?: number;
+  setBoundaryDepth?: (value: number) => void;
+  boundaryNoise?: number;
+  setBoundaryNoise?: (value: number) => void;
+  boundaryKernelMix?: number;
+  setBoundaryKernelMix?: (value: number) => void;
 };
 
 export function SensitivityPanel({
@@ -34,6 +43,14 @@ export function SensitivityPanel({
   alef,
   oneField,
   oneMetrics,
+  holographicMode,
+  setHolographicMode,
+  boundaryDepth,
+  setBoundaryDepth,
+  boundaryNoise,
+  setBoundaryNoise,
+  boundaryKernelMix,
+  setBoundaryKernelMix,
 }: Props) {
   const [showUnified, setShowUnified] = useState(false);
   const setIdx = (i: number, val: number) => {
@@ -162,6 +179,25 @@ export function SensitivityPanel({
       <button onClick={() => setShowUnified(v => !v)} style={{ justifySelf: "start", padding: "6px 10px" }}>
         {showUnified ? "Vista individual" : "Vista unificada"}
       </button>
+      {typeof holographicMode === "boolean" &&
+        setHolographicMode &&
+        typeof boundaryDepth === "number" &&
+        setBoundaryDepth &&
+        typeof boundaryNoise === "number" &&
+        setBoundaryNoise &&
+        typeof boundaryKernelMix === "number" &&
+        setBoundaryKernelMix && (
+          <HolographicControls
+            holographicMode={holographicMode}
+            setHolographicMode={setHolographicMode}
+            boundaryDepth={boundaryDepth}
+            setBoundaryDepth={setBoundaryDepth}
+            boundaryNoise={boundaryNoise}
+            setBoundaryNoise={setBoundaryNoise}
+            boundaryKernelMix={boundaryKernelMix}
+            setBoundaryKernelMix={setBoundaryKernelMix}
+          />
+        )}
     </div>
   );
 }

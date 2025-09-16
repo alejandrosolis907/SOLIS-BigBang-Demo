@@ -70,6 +70,156 @@ export const RIGID_KERNEL = [
   0, -1,  0
 ];
 
+function clamp01(v){
+  if (v < 0) return 0;
+  if (v > 1) return 1;
+  return v;
+}
+
+function blendKernel(mix=0){
+  const m = clamp01(mix);
+  return SMOOTH_KERNEL.map((s, i) => s * (1 - m) + RIGID_KERNEL[i] * m);
+}
+
+function fract(x){
+  return x - Math.floor(x);
+}
+
+function deterministicNoise(x, y, value){
+  // Deterministic pseudo-noise that only depends on the boundary value and coordinates.
+  const basis = value * 977.13 + (x + 1) * 12.9898 + (y + 1) * 78.233;
+  return fract(Math.sin(basis) * 43758.5453);
+}
+
+function propagateBoundaryLattice(state){
+  const { grid } = state;
+  const total = grid * grid;
+  if (!state.lattice || state.lattice.length !== total) {
+    state.lattice = new Float32Array(total);
+  }
+  const lattice = state.lattice;
+  lattice.fill(0);
+  if (!state._holoVisited || state._holoVisited.length !== total) {
+    state._holoVisited = new Uint8Array(total);
+  } else {
+    state._holoVisited.fill(0);
+  }
+  const visited = state._holoVisited;
+  const queue = [];
+  const idx = (x, y) => y * grid + x;
+  const depthLimit = Math.max(0, Math.floor(state.boundaryDepth ?? grid));
+  const boundaryNoise = state.boundaryNoise ?? 0;
+  const kernel = blendKernel(state.boundaryKernelMix ?? 0);
+
+  let boundarySum = 0;
+  let boundaryCount = 0;
+
+  for (let y = 0; y < grid; y++) {
+    for (let x = 0; x < grid; x++) {
+      if (x === 0 || y === 0 || x === grid - 1 || y === grid - 1) {
+        const id = idx(x, y);
+        const phiVal = clamp01(state.phi[id]);
+        const noise = boundaryNoise ? boundaryNoise * (deterministicNoise(x, y, phiVal) - 0.5) : 0;
+        const value = clamp01(phiVal + noise);
+        lattice[id] = value;
+        visited[id] = 1;
+        queue.push({ x, y, depth: 0 });
+        boundarySum += value;
+        boundaryCount++;
+      }
+    }
+  }
+
+  const boundaryAvg = boundaryCount ? boundarySum / boundaryCount : 0;
+  const neighbours = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [-1, 1],
+    [1, -1],
+    [-1, -1],
+  ];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current) break;
+    const { x, y, depth } = current;
+    if (depth >= depthLimit) continue;
+    for (const [dx, dy] of neighbours) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= grid || ny < 0 || ny >= grid) continue;
+      const nid = idx(nx, ny);
+      if (visited[nid]) continue;
+      let acc = 0;
+      let weight = 0;
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const px = nx + kx;
+          const py = ny + ky;
+          if (px < 0 || px >= grid || py < 0 || py >= grid) continue;
+          const pid = idx(px, py);
+          if (!visited[pid]) continue;
+          const w = kernel[(ky + 1) * 3 + (kx + 1)];
+          if (w === 0) continue;
+          acc += lattice[pid] * w;
+          weight += Math.abs(w);
+        }
+      }
+      const source = lattice[idx(x, y)];
+      const value = weight > 0 ? clamp01(acc / weight) : source;
+      lattice[nid] = value;
+      visited[nid] = 1;
+      queue.push({ x: nx, y: ny, depth: depth + 1 });
+    }
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let y = 0; y < grid; y++) {
+      for (let x = 0; x < grid; x++) {
+        const id = idx(x, y);
+        if (visited[id]) continue;
+        let acc = 0;
+        let weight = 0;
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const px = x + kx;
+            const py = y + ky;
+            if (px < 0 || px >= grid || py < 0 || py >= grid) continue;
+            const pid = idx(px, py);
+            if (!visited[pid]) continue;
+            const w = kernel[(ky + 1) * 3 + (kx + 1)];
+            if (w === 0) continue;
+            acc += lattice[pid] * w;
+            weight += Math.abs(w);
+          }
+        }
+        if (weight > 0) {
+          lattice[id] = clamp01(acc / weight);
+          visited[id] = 1;
+          changed = true;
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < lattice.length; i++) {
+    if (!visited[i]) {
+      lattice[i] = boundaryAvg;
+    }
+  }
+
+  let sum = 0;
+  for (let i = 0; i < lattice.length; i++) sum += lattice[i];
+  state.holographicBulk = lattice.length ? sum / lattice.length : 0;
+
+  return lattice;
+}
+
 export function applyLattice(phi, grid, preset, customKernel, mix=0){
   // blend smooth/rigid kernels according to mix (𝓡ₐ feedback)
   const blended = SMOOTH_KERNEL.map((s,i)=> s*(1-mix) + RIGID_KERNEL[i]*mix);
@@ -123,7 +273,14 @@ export function tick(state){
   }
   // 𝓡ₐ: decay lattice mix and apply to kernel selection
   state.kernelMix = (state.kernelMix ?? 0) * 0.97;
-  state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
+
+  if (state.holographicMode) {
+    const lattice = propagateBoundaryLattice(state);
+    const holoKernel = blendKernel(state.boundaryKernelMix ?? 0);
+    state.shaped = applyKernel(lattice, grid, holoKernel);
+  } else {
+    state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
+  }
   if(mu>0){
     for(let i=0;i<state.shaped.length;i++){
       state.shaped[i] *= (1 - mu);
@@ -142,14 +299,20 @@ export function tick(state){
       diffR += Math.abs(state.shaped[i]-state.prevShaped[i]);
     }
     diffR /= state.shaped.length;
-    const diffL = Math.abs((state.kernelMix ?? 0) - (state.prevKernelMix ?? state.kernelMix));
+    let diffL;
+    if (state.holographicMode) {
+      diffL = Math.abs((state.boundaryKernelMix ?? 0) - (state.prevBoundaryKernelMix ?? state.boundaryKernelMix ?? 0));
+      state.prevBoundaryKernelMix = state.boundaryKernelMix ?? 0;
+    } else {
+      diffL = Math.abs((state.kernelMix ?? 0) - (state.prevKernelMix ?? state.kernelMix));
+      state.prevKernelMix = state.kernelMix;
+    }
     const epsilonL = 1e-6;
     state.timeField = diffR / Math.max(diffL, epsilonL);
   } else {
     state.timeField = 0;
   }
   state.prevShaped = Float32Array.from(state.shaped);
-  state.prevKernelMix = state.kernelMix;
   const stats = resonance(state.phi, state.shaped, state.timeField);
   state.lastRes = stats.res;
   const effectiveEps = epsilon * (1 + state.timeField);

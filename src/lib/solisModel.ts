@@ -1,6 +1,223 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Particle, cosineSim01, computeMetrics } from "./resonance";
 
+const SMOOTH_KERNEL = [
+  0.07, 0.12, 0.07,
+  0.12, 0.26, 0.12,
+  0.07, 0.12, 0.07,
+];
+
+const RIGID_KERNEL = [
+  0, -1, 0,
+  -1, 4, -1,
+  0, -1, 0,
+];
+
+const neighbourOffsets = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, 1],
+  [-1, 1],
+  [1, -1],
+  [-1, -1],
+];
+
+function clamp01(v: number) {
+  if (v < 0) return 0;
+  if (v > 1) return 1;
+  return v;
+}
+
+function blendKernel(mix: number) {
+  const m = clamp01(mix);
+  return SMOOTH_KERNEL.map((s, i) => s * (1 - m) + RIGID_KERNEL[i] * m);
+}
+
+function fract(x: number) {
+  return x - Math.floor(x);
+}
+
+function deterministicNoise(x: number, y: number, base: number, dim: number) {
+  const basis = base * 977.13 + (dim + 1) * 37.719 + (x + 1) * 12.9898 + (y + 1) * 78.233;
+  return fract(Math.sin(basis) * 43758.5453);
+}
+
+function arraysClose(a: number[], b: number[]) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (Math.abs(a[i] - b[i]) > 1e-6) return false;
+  }
+  return true;
+}
+
+type HolographicResult = {
+  bulk: number[];
+  field: Float32Array[];
+  grid: number;
+};
+
+function computeHolographicBulk(
+  boundaryValues: number[],
+  particleCount: number,
+  depth: number,
+  noise: number,
+  kernelMix: number,
+): HolographicResult {
+  const dims = boundaryValues.length || 1;
+  const sizeHint = Math.max(particleCount || 0, (depth + 2) * (depth + 2));
+  const grid = Math.max(3, Math.ceil(Math.sqrt(sizeHint || 1)));
+  const total = grid * grid;
+  const kernel = blendKernel(kernelMix);
+
+  const fields = Array.from({ length: dims }, () => new Float32Array(total));
+  const visited = new Uint8Array(total);
+  const queue: { x: number; y: number; depth: number }[] = [];
+  const idx = (x: number, y: number) => y * grid + x;
+  const isBoundary = (x: number, y: number) => x === 0 || y === 0 || x === grid - 1 || y === grid - 1;
+
+  const boundarySums = new Array(dims).fill(0);
+  const boundaryCounts = new Array(dims).fill(0);
+  const effectiveDepth = Math.max(0, Math.floor(depth));
+
+  for (let y = 0; y < grid; y++) {
+    for (let x = 0; x < grid; x++) {
+      if (!isBoundary(x, y)) continue;
+      const id = idx(x, y);
+      visited[id] = 1;
+      queue.push({ x, y, depth: 0 });
+      const edgeIndex = x === 0 ? 3 : x === grid - 1 ? 1 : y === 0 ? 0 : 2;
+      for (let d = 0; d < dims; d++) {
+        const base = boundaryValues[(edgeIndex + d) % dims] ?? 0;
+        const jitter = noise ? noise * (deterministicNoise(x, y, base, d) - 0.5) : 0;
+        const value = clamp01(base + jitter);
+        fields[d][id] = value;
+        boundarySums[d] += value;
+        boundaryCounts[d] += 1;
+      }
+    }
+  }
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current) break;
+    const { x, y, depth: currentDepth } = current;
+    if (currentDepth >= effectiveDepth) continue;
+    for (const [dx, dy] of neighbourOffsets) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= grid || ny < 0 || ny >= grid) continue;
+      const nid = idx(nx, ny);
+      if (visited[nid]) continue;
+      const nextValues = new Array(dims).fill(0);
+      let hasContribution = false;
+      for (let d = 0; d < dims; d++) {
+        let acc = 0;
+        let weight = 0;
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const px = nx + kx;
+            const py = ny + ky;
+            if (px < 0 || px >= grid || py < 0 || py >= grid) continue;
+            const pid = idx(px, py);
+            if (!visited[pid]) continue;
+            const w = kernel[(ky + 1) * 3 + (kx + 1)];
+            if (w === 0) continue;
+            acc += fields[d][pid] * w;
+            weight += Math.abs(w);
+          }
+        }
+        const fallback = fields[d][idx(x, y)];
+        nextValues[d] = weight > 0 ? clamp01(acc / weight) : fallback;
+        if (weight > 0) hasContribution = true;
+      }
+      if (hasContribution || effectiveDepth === 0) {
+        for (let d = 0; d < dims; d++) {
+          fields[d][nid] = nextValues[d];
+        }
+        visited[nid] = 1;
+        queue.push({ x: nx, y: ny, depth: currentDepth + 1 });
+      }
+    }
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let y = 0; y < grid; y++) {
+      for (let x = 0; x < grid; x++) {
+        const id = idx(x, y);
+        if (visited[id]) continue;
+        const nextValues = new Array(dims).fill(0);
+        let hasContribution = false;
+        for (let d = 0; d < dims; d++) {
+          let acc = 0;
+          let weight = 0;
+          for (let ky = -1; ky <= 1; ky++) {
+            for (let kx = -1; kx <= 1; kx++) {
+              const px = x + kx;
+              const py = y + ky;
+              if (px < 0 || px >= grid || py < 0 || py >= grid) continue;
+              const pid = idx(px, py);
+              if (!visited[pid]) continue;
+              const w = kernel[(ky + 1) * 3 + (kx + 1)];
+              if (w === 0) continue;
+              acc += fields[d][pid] * w;
+              weight += Math.abs(w);
+            }
+          }
+          if (weight > 0) {
+            nextValues[d] = clamp01(acc / weight);
+            hasContribution = true;
+          } else {
+            nextValues[d] = 0;
+          }
+        }
+        if (hasContribution) {
+          for (let d = 0; d < dims; d++) {
+            fields[d][id] = nextValues[d];
+          }
+          visited[id] = 1;
+          changed = true;
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < total; i++) {
+    if (visited[i]) continue;
+    for (let d = 0; d < dims; d++) {
+      const avg = boundaryCounts[d] ? boundarySums[d] / boundaryCounts[d] : boundaryValues[d] ?? 0;
+      fields[d][i] = clamp01(avg);
+    }
+  }
+
+  const bulkSums = new Array(dims).fill(0);
+  const bulkCounts = new Array(dims).fill(0);
+  for (let y = 0; y < grid; y++) {
+    for (let x = 0; x < grid; x++) {
+      const id = idx(x, y);
+      const boundaryCell = isBoundary(x, y);
+      for (let d = 0; d < dims; d++) {
+        const value = fields[d][id];
+        if (!boundaryCell) {
+          bulkSums[d] += value;
+          bulkCounts[d] += 1;
+        }
+      }
+    }
+  }
+
+  const bulk = bulkSums.map((sum, d) => {
+    if (bulkCounts[d] > 0) return clamp01(sum / bulkCounts[d]);
+    if (boundaryCounts[d] > 0) return clamp01(boundarySums[d] / boundaryCounts[d]);
+    return clamp01(boundaryValues[d] ?? 0);
+  });
+
+  return { bulk, field: fields, grid };
+}
+
 export type EventEpsilon = {
   t: number;
   id: string;
@@ -29,6 +246,14 @@ export function useSolisModel(initialMu = 0) {
   const [oneMetrics, setOneMetrics] = useState({ entropy: 0, density: 0, clusters: 0 });
   // 𝓡ₐ: intensidad de retroalimentación de R sobre 𝓛
   const [raGain, setRaGain] = useState<number>(0);
+  // modo holográfico
+  const [holographicMode, setHolographicMode] = useState<boolean>(false);
+  const [boundaryDepth, setBoundaryDepth] = useState<number>(4);
+  const [boundaryNoise, setBoundaryNoise] = useState<number>(0);
+  const [boundaryKernelMix, setBoundaryKernelMix] = useState<number>(0);
+  const [holographicBulk, setHolographicBulk] = useState<number[]>(() => [0.6, 0.3, 0.1]);
+  const holographicFieldRef = useRef<Float32Array[] | null>(null);
+  const [holographicGrid, setHolographicGrid] = useState<number>(0);
 
   const particlesRef = useRef<Particle[]>([]);
   const timeRef = useRef<number>(0);
@@ -61,7 +286,20 @@ export function useSolisModel(initialMu = 0) {
       }));
       particlesRef.current = P;
     }
-    const LNow = L;
+    let LNow = L;
+    if (holographicMode) {
+      const holo = computeHolographicBulk(L, P.length, boundaryDepth, boundaryNoise, boundaryKernelMix);
+      LNow = holo.bulk;
+      setHolographicBulk(prev => (arraysClose(prev, holo.bulk) ? prev : [...holo.bulk]));
+      holographicFieldRef.current = holo.field;
+      setHolographicGrid(prev => (prev === holo.grid ? prev : holo.grid));
+    } else {
+      setHolographicBulk(prev => (arraysClose(prev, L) ? prev : [...L]));
+      if (holographicFieldRef.current !== null) {
+        holographicFieldRef.current = null;
+      }
+      setHolographicGrid(prev => (prev === 0 ? prev : 0));
+    }
 
     const res = P.map(p => cosineSim01(p.features, LNow));
     const avg = res.length ? res.reduce((a,b)=>a+b,0)/res.length : 0;
@@ -147,7 +385,7 @@ export function useSolisModel(initialMu = 0) {
         });
       }
     }
-  }, [L, theta, mu, muEffective, raGain]);
+  }, [L, theta, mu, muEffective, raGain, holographicMode, boundaryDepth, boundaryNoise, boundaryKernelMix]);
 
   const resetMetrics = useCallback(() => {
     lastMetricsRef.current = { entropy: 0, density: 0, clusters: 0 };
@@ -167,6 +405,13 @@ export function useSolisModel(initialMu = 0) {
     timeField,
     eventsLog,
     oneField, oneMetrics,
+    holographicMode, setHolographicMode,
+    boundaryDepth, setBoundaryDepth,
+    boundaryNoise, setBoundaryNoise,
+    boundaryKernelMix, setBoundaryKernelMix,
+    holographicBulk,
+    holographicField: holographicFieldRef.current,
+    holographicGrid,
     pushParticles, tick
   };
 }
