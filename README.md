@@ -24,6 +24,12 @@ De esta forma la atenuación de cada tic solo afecta al campo de potenciales Φ,
 - Al aumentar `𝓡ₐ`, la lattice se aproxima gradualmente al promedio de las características Φ que generan eventos ε, ponderado por la resonancia y el campo temporal `𝓣`.
 - Con `𝓡ₐ = 0` la estructura permanece fija; valores mayores permiten estudiar el Axioma VIII (realidad autoactualizable) sin romper la independencia de la fricción, que sigue actuando únicamente sobre Φ.
 
+## Campo temporal 𝓣
+
+- Cada tic de la simulación registra el estado previo de 𝓛 y de las métricas de R (entropía, densidad y clusters de resonancia).
+- `𝓣` se calcula como la derivada discreta ∂R/∂𝓛 ≈ Δ‖R‖ / Δ‖𝓛‖: si la lattice cambia pero las métricas de la realidad apenas lo hacen, `𝓣` se reduce; cuando pequeñas variaciones estructurales producen grandes cambios en R, `𝓣` crece.
+- Este valor modulador aparece en la activación de eventos ε y en la retroalimentación `𝓡ₐ`, reforzando el Axioma IV donde el tiempo emerge del ritmo de actualización de R respecto a 𝓛.
+
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
 - La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).

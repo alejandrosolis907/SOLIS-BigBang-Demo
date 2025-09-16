@@ -32,6 +32,7 @@ export function useSolisModel(initialMu = 0) {
 
   const particlesRef = useRef<Particle[]>([]);
   const timeRef = useRef<number>(0);
+  const lastLRef = useRef<number[] | null>(null);
 
   // congruencia 𝓛 ↔ μ: la estructura aumenta la fricción efectiva
   const structuralIntensity = useMemo(() => {
@@ -72,9 +73,24 @@ export function useSolisModel(initialMu = 0) {
     const dDensity = m.density - lastMetricsRef.current.density;
     const dClusters = m.clusters - lastMetricsRef.current.clusters;
     setMetricsDelta({ dEntropy, dDensity, dClusters });
-    const tField = Math.abs(dEntropy) + Math.abs(dDensity) + Math.abs(dClusters);
-    setTimeField(tField);
+
+    const deltaR = Math.sqrt(dEntropy * dEntropy + dDensity * dDensity + dClusters * dClusters);
+    let deltaL = 0;
+    const prevL = lastLRef.current;
+    if (prevL && prevL.length && LNow.length) {
+      const dims = Math.max(prevL.length, LNow.length);
+      let acc = 0;
+      for (let i = 0; i < dims; i++) {
+        const prevVal = prevL[i] ?? prevL[prevL.length - 1] ?? 0;
+        const currentVal = LNow[i] ?? LNow[LNow.length - 1] ?? 0;
+        acc += Math.abs(currentVal - prevVal);
+      }
+      deltaL = acc / dims;
+    }
+    const derivative = deltaL > 1e-6 ? deltaR / deltaL : 0;
+    setTimeField(derivative);
     lastMetricsRef.current = m;
+    lastLRef.current = [...LNow];
 
     const dims = LNow.length;
     let phiMeanVector: number[] = [];
@@ -114,7 +130,7 @@ export function useSolisModel(initialMu = 0) {
     setOneMetrics(computeMetrics(unified, theta));
 
     if (raGain > 0 && phiMeanVector.length) {
-      const feedbackDriver = Math.min(1, Math.max(0, reality + tField));
+      const feedbackDriver = Math.min(1, Math.max(0, reality + derivative));
       if (feedbackDriver > 0) {
         const phiVectorSnapshot = [...phiMeanVector];
         setL(prev => {
@@ -135,6 +151,7 @@ export function useSolisModel(initialMu = 0) {
 
   const resetMetrics = useCallback(() => {
     lastMetricsRef.current = { entropy: 0, density: 0, clusters: 0 };
+    lastLRef.current = null;
     setMetricsDelta({ dEntropy: 0, dDensity: 0, dClusters: 0 });
     setTimeField(0);
   }, []);
