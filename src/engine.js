@@ -66,6 +66,11 @@ function applyKernel(phi, grid, kernel){
   return out;
 }
 
+const DEFAULT_DEPTH_DECAY = 0.85;
+const HAMMING_ALPHA = 0.54;
+const HAMMING_BETA = 0.46;
+const HAMMING_WINDOW = 64;
+
 export const SMOOTH_KERNEL = [
   0.07, 0.12, 0.07,
   0.12, 0.26, 0.12,
@@ -96,6 +101,64 @@ function deterministicNoise(x, y, value){
   // Deterministic pseudo-noise that only depends on the boundary value and coordinates.
   const basis = value * 977.13 + (x + 1) * 12.9898 + (y + 1) * 78.233;
   return fract(Math.sin(basis) * 43758.5453);
+}
+
+function ensureDepthWeights(state){
+  const { grid } = state;
+  if (!grid) return null;
+  const total = grid * grid;
+  const boundaryDepth = Math.max(0, Math.floor(state.boundaryDepth ?? grid));
+  const decayRaw = typeof state.depthDecay === "number" ? state.depthDecay : DEFAULT_DEPTH_DECAY;
+  const decay = clamp01(decayRaw);
+  if (
+    !state._depthWeights ||
+    state._depthWeights.length !== total ||
+    state._depthWeightsDecay !== decay ||
+    state._depthWeightsDepth !== boundaryDepth
+  ) {
+    const weights = new Float32Array(total);
+    for (let y = 0; y < grid; y++) {
+      for (let x = 0; x < grid; x++) {
+        const idx = y * grid + x;
+        const depthFromEdge = Math.min(x, y, grid - 1 - x, grid - 1 - y);
+        const effectiveDepth = Math.min(boundaryDepth, depthFromEdge);
+        let weight;
+        if (effectiveDepth <= 0) {
+          weight = 1;
+        } else if (decay === 0) {
+          weight = 0;
+        } else {
+          weight = Math.pow(decay, effectiveDepth);
+        }
+        weights[idx] = Math.max(1e-3, weight);
+      }
+    }
+    state._depthWeights = weights;
+    state._depthWeightsDecay = decay;
+    state._depthWeightsDepth = boundaryDepth;
+  }
+  return state._depthWeights;
+}
+
+function weightedCosine01(a, b, weights){
+  const n = Math.max(a.length, b.length, weights ? weights.length : 0);
+  if (n === 0) return 0;
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < n; i++) {
+    const ai = a[i] ?? a[a.length - 1] ?? 0;
+    const bi = b[i] ?? b[b.length - 1] ?? 0;
+    const w = weights ? (weights[i] ?? weights[weights.length - 1] ?? 1) : 1;
+    if (w <= 0) continue;
+    dot += w * ai * bi;
+    na += w * ai * ai;
+    nb += w * bi * bi;
+  }
+  if (na <= 1e-12 || nb <= 1e-12) return 0;
+  const cos = dot / Math.sqrt(na * nb);
+  const clamped = Math.max(-1, Math.min(1, cos));
+  return (clamped + 1) / 2;
 }
 
 function propagateBoundaryLattice(state){
@@ -269,24 +332,18 @@ export function applyLattice(phi, grid, preset, customKernel, mix=0){
 }
 
 // ℜ: measure affinity between φ and 𝓛 with temporal context 𝓣
-function cosineSim01(a,b){
-  let dot=0,na=0,nb=0;
-  const n=Math.min(a.length,b.length);
-  for(let i=0;i<n;i++){
-    const x=a[i], y=b[i];
-    dot+=x*y; na+=x*x; nb+=y*y;
-  }
-  if(na===0||nb===0) return 0;
-  const raw=dot/Math.sqrt(na*nb); // -1..1
-  return (raw+1)/2; // 0..1
-}
-
-export function resonance(phi, shaped, context=0){
-  const sim = cosineSim01(phi, shaped);
-  // map context (timeField) to 0..1 window via sinusoidal cycle
-  const t = 0.5 + 0.5*Math.sin(context*0.05);
-  const res = sim * t;
-  return {sim, t, res};
+export function resonance(phi, shaped, context=0, weights=null, tickCount=0){
+  const sim = weightedCosine01(phi, shaped, weights);
+  const windowSize = Math.max(2, HAMMING_WINDOW);
+  const phase = (tickCount % windowSize) / (windowSize - 1);
+  const hamming = HAMMING_ALPHA - HAMMING_BETA * Math.cos(2 * Math.PI * phase);
+  const hammingNorm = HAMMING_ALPHA > 0 ? hamming / HAMMING_ALPHA : hamming;
+  const temporalMod = Math.min(
+    1.5,
+    Math.max(0.5, hammingNorm * (1 + 0.1 * Math.tanh(context)))
+  );
+  const res = Math.max(0, Math.min(1, sim * temporalMod));
+  return { sim, t: temporalMod, res };
 }
 
 export function tick(state){
@@ -295,6 +352,7 @@ export function tick(state){
   if(ms.dimOmega < ms.dimPhi + 1){
     console.warn(`Axioma XII violado: dimΩ (${ms.dimOmega}) < dimΦ + 1 (${ms.dimPhi + 1})`);
   }
+  state.tickCount = (state.tickCount ?? 0) + 1;
   const recon = ensureReconstructionState(state);
   // remember original preset so feedback can modify and restore
   state.basePreset = state.basePreset ?? preset;
@@ -439,7 +497,8 @@ export function tick(state){
     state.timeField = 0;
   }
   state.prevShaped = Float32Array.from(state.shaped);
-  const stats = resonance(state.phi, state.shaped, state.timeField);
+  const depthWeights = ensureDepthWeights(state);
+  const stats = resonance(state.phi, state.shaped, state.timeField, depthWeights, state.tickCount);
   state.lastRes = stats.res;
   const effectiveEps = epsilon * (1 + state.timeField);
   if(stats.res >= effectiveEps){

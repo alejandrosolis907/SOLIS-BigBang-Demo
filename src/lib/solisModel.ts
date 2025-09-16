@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { computeAreaLaw, type AreaLawMetrics } from "../metrics";
-import { Particle, cosineSim01, computeMetrics } from "./resonance";
+import { Particle, computeMetrics } from "./resonance";
 
 const SMOOTH_KERNEL = [
   0.07, 0.12, 0.07,
@@ -51,6 +51,62 @@ function arraysClose(a: number[], b: number[]) {
     if (Math.abs(a[i] - b[i]) > 1e-6) return false;
   }
   return true;
+}
+
+const DEFAULT_DEPTH_DECAY = 0.85;
+const HAMMING_ALPHA = 0.54;
+const HAMMING_BETA = 0.46;
+const HAMMING_WINDOW = 64;
+
+function buildDepthWeights(length: number, boundaryDepth: number, depthDecay: number) {
+  if (length <= 0) return [];
+  const limit = Math.max(0, Math.floor(boundaryDepth));
+  const decay = clamp01(depthDecay);
+  const weights: number[] = new Array(length);
+  for (let i = 0; i < length; i++) {
+    const depth = Math.min(limit, i);
+    let value: number;
+    if (depth === 0) {
+      value = 1;
+    } else if (decay === 0) {
+      value = 0;
+    } else {
+      value = Math.pow(decay, depth);
+    }
+    weights[i] = Math.max(1e-3, value);
+  }
+  return weights;
+}
+
+function weightedCosine01(a: number[], b: number[], weights: number[]): number {
+  const length = Math.max(a.length, b.length, weights.length);
+  if (length === 0) return 0;
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < length; i++) {
+    const ai = a[i] ?? a[a.length - 1] ?? 0;
+    const bi = b[i] ?? b[b.length - 1] ?? 0;
+    const w = weights[i] ?? weights[weights.length - 1] ?? 1;
+    if (w <= 0) continue;
+    dot += w * ai * bi;
+    na += w * ai * ai;
+    nb += w * bi * bi;
+  }
+  if (na <= 1e-12 || nb <= 1e-12) return 0;
+  const cos = dot / Math.sqrt(na * nb);
+  const clamped = Math.max(-1, Math.min(1, cos));
+  return (clamped + 1) / 2;
+}
+
+function computeTemporalMod(tick: number, timeField: number): number {
+  const windowSize = Math.max(2, HAMMING_WINDOW);
+  const phase = (tick % windowSize) / (windowSize - 1);
+  const hamming = HAMMING_ALPHA - HAMMING_BETA * Math.cos(2 * Math.PI * phase);
+  const normalized = HAMMING_ALPHA > 0 ? hamming / HAMMING_ALPHA : hamming;
+  const timeMod = 1 + 0.1 * Math.tanh(timeField);
+  const combined = normalized * timeMod;
+  return Math.min(1.5, Math.max(0.5, combined));
 }
 
 type HolographicResult = {
@@ -310,12 +366,15 @@ export function useSolisModel(initialMu = 0) {
       setAreaLawMetrics(null);
     }
 
-    const res = P.map(p => cosineSim01(p.features, LNow));
-    const avg = res.length ? res.reduce((a,b)=>a+b,0)/res.length : 0;
+    const weights = LNow.length ? buildDepthWeights(LNow.length, boundaryDepth, DEFAULT_DEPTH_DECAY) : [];
+    const rawRes = P.map(p => weightedCosine01(p.features, LNow, weights));
+    const temporalMod = computeTemporalMod(timeRef.current, timeField);
+    const resonances = rawRes.map(r => clamp01(r * temporalMod));
+    const avg = resonances.length ? resonances.reduce((a, b) => a + b, 0) / resonances.length : 0;
     setResonanceNow(avg);
 
     // métricas y Δ (∂R/∂𝓛 estimado por diferencia)
-    const m = computeMetrics(res, theta);
+    const m = computeMetrics(resonances, theta);
     const dEntropy = m.entropy - lastMetricsRef.current.entropy;
     const dDensity = m.density - lastMetricsRef.current.density;
     const dClusters = m.clusters - lastMetricsRef.current.clusters;
@@ -357,7 +416,7 @@ export function useSolisModel(initialMu = 0) {
     const events: EventEpsilon[] = [];
     const effectiveTheta = theta * (1 + timeField);
     P.forEach((p, i) => {
-      const r = res[i];
+      const r = resonances[i];
       if (r >= effectiveTheta) {
         events.push({ t: timeRef.current, id: p.id, r, L: [...LNow] });
       }
