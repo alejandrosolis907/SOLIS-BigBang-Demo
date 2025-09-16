@@ -70,6 +70,14 @@ const DEFAULT_DEPTH_DECAY = 0.85;
 const HAMMING_ALPHA = 0.54;
 const HAMMING_BETA = 0.46;
 const HAMMING_WINDOW = 64;
+const AREA_FEEDBACK_PERIOD = 16;
+const AREA_RATIO_THRESHOLD = 0.045;
+const AREA_RATIO_HYSTERESIS = 0.005;
+const AREA_GAIN_STEP = 0.03;
+const AREA_GAIN_MIN = 0.6;
+const AREA_GAIN_MAX = 1.4;
+const AREA_RELAX_RATE = 0.08;
+const AREA_BOUNDARY_MARGIN = 1;
 
 export const SMOOTH_KERNEL = [
   0.07, 0.12, 0.07,
@@ -140,6 +148,18 @@ function ensureDepthWeights(state){
   return state._depthWeights;
 }
 
+function ensureBoundaryWeights(state) {
+  if (!state.boundaryWeights) {
+    state.boundaryWeights = {
+      top: 1,
+      bottom: 1,
+      left: 1,
+      right: 1,
+    };
+  }
+  return state.boundaryWeights;
+}
+
 function weightedCosine01(a, b, weights){
   const n = Math.max(a.length, b.length, weights ? weights.length : 0);
   if (n === 0) return 0;
@@ -169,6 +189,7 @@ function propagateBoundaryLattice(state){
   }
   const lattice = state.lattice;
   lattice.fill(0);
+  const boundaryWeights = ensureBoundaryWeights(state);
   if (!state._holoVisited || state._holoVisited.length !== total) {
     state._holoVisited = new Uint8Array(total);
   } else {
@@ -190,7 +211,12 @@ function propagateBoundaryLattice(state){
         const id = idx(x, y);
         const phiVal = clamp01(state.phi[id]);
         const noise = boundaryNoise ? boundaryNoise * (deterministicNoise(x, y, phiVal) - 0.5) : 0;
-        const value = clamp01(phiVal + noise);
+        let gain = 1;
+        if (x === 0) gain *= boundaryWeights.left;
+        if (x === grid - 1) gain *= boundaryWeights.right;
+        if (y === 0) gain *= boundaryWeights.top;
+        if (y === grid - 1) gain *= boundaryWeights.bottom;
+        const value = clamp01((phiVal + noise) * gain);
         lattice[id] = value;
         visited[id] = 1;
         queue.push({ x, y, depth: 0 });
@@ -288,6 +314,95 @@ function propagateBoundaryLattice(state){
   state.holographicBulk = lattice.length ? sum / lattice.length : 0;
 
   return lattice;
+}
+
+function applyAreaLawFeedback(state) {
+  if (!state.holographicMode) return;
+  const metrics = state.areaLaw;
+  if (!metrics || !Array.isArray(metrics.regions) || metrics.regions.length === 0) {
+    return;
+  }
+  const period = Math.max(1, Math.floor(state.areaFeedbackPeriod ?? AREA_FEEDBACK_PERIOD));
+  if ((state.tickCount ?? 0) % period !== 0) {
+    return;
+  }
+
+  const threshold = Number.isFinite(state.areaFeedbackThreshold)
+    ? state.areaFeedbackThreshold
+    : AREA_RATIO_THRESHOLD;
+  const hysteresis = Number.isFinite(state.areaFeedbackHysteresis)
+    ? state.areaFeedbackHysteresis
+    : AREA_RATIO_HYSTERESIS;
+  const step = Number.isFinite(state.areaFeedbackStep) ? state.areaFeedbackStep : AREA_GAIN_STEP;
+  const relax = Number.isFinite(state.areaFeedbackRelax)
+    ? state.areaFeedbackRelax
+    : AREA_RELAX_RATE;
+  const margin = Math.max(0, Math.floor(state.areaFeedbackMargin ?? AREA_BOUNDARY_MARGIN));
+  const minGain = Number.isFinite(state.areaFeedbackMinGain) ? state.areaFeedbackMinGain : AREA_GAIN_MIN;
+  const maxGain = Number.isFinite(state.areaFeedbackMaxGain) ? state.areaFeedbackMaxGain : AREA_GAIN_MAX;
+
+  const totals = { top: 0, bottom: 0, left: 0, right: 0 };
+  const counts = { top: 0, bottom: 0, left: 0, right: 0 };
+  const grid = state.grid;
+  const bottomLimit = grid - 1 - margin;
+  const rightLimit = grid - 1 - margin;
+
+  for (const region of metrics.regions) {
+    const perimeter = region.perimeter;
+    if (!Number.isFinite(perimeter) || perimeter <= 0) continue;
+    const ratio = region.entropy / perimeter;
+    if (!Number.isFinite(ratio)) continue;
+
+    const touchesTop = region.y <= margin;
+    const touchesBottom = region.y + region.height - 1 >= bottomLimit;
+    const touchesLeft = region.x <= margin;
+    const touchesRight = region.x + region.width - 1 >= rightLimit;
+
+    if (touchesTop) {
+      totals.top += ratio;
+      counts.top++;
+    }
+    if (touchesBottom) {
+      totals.bottom += ratio;
+      counts.bottom++;
+    }
+    if (touchesLeft) {
+      totals.left += ratio;
+      counts.left++;
+    }
+    if (touchesRight) {
+      totals.right += ratio;
+      counts.right++;
+    }
+  }
+
+  const weights = ensureBoundaryWeights(state);
+  const relaxTowards = (current) => current + (1 - current) * relax;
+  const clampGain = (value) => Math.max(minGain, Math.min(maxGain, value));
+
+  const sides = ["top", "bottom", "left", "right"];
+  state.boundaryFeedback = state.boundaryFeedback || {};
+  state.boundaryFeedback.lastRatios = state.boundaryFeedback.lastRatios || {};
+  state.boundaryFeedback.lastTick = state.tickCount;
+
+  for (const side of sides) {
+    const count = counts[side];
+    if (count > 0) {
+      const avg = totals[side] / count;
+      state.boundaryFeedback.lastRatios[side] = avg;
+      const diff = threshold - avg;
+      if (diff > hysteresis) {
+        weights[side] = clampGain(weights[side] + step);
+      } else if (diff < -hysteresis) {
+        weights[side] = clampGain(weights[side] - step);
+      } else {
+        weights[side] = clampGain(relaxTowards(weights[side]));
+      }
+    } else {
+      state.boundaryFeedback.lastRatios[side] = null;
+      weights[side] = clampGain(relaxTowards(weights[side]));
+    }
+  }
 }
 
 const DEFAULT_RECON_STATE = () => ({
@@ -401,6 +516,7 @@ export function tick(state){
   } else {
     state.areaLaw = state.areaLaw ?? null;
   }
+  applyAreaLawFeedback(state);
 
   if (recon.pendingTrain) {
     const boundarySize = grid * 4 - 4;
