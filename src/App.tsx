@@ -5,6 +5,7 @@ import { LinePlot } from "./components/LinePlot";
 import { PhiCanvas, type Snapshot as PhiSnapshot } from "./components/PhiCanvas";
 import { GlobalParamsPanel } from "./components/GlobalParamsPanel";
 import { KernelEditor } from "./components/KernelEditor";
+import ReportPanel from "./ui/report";
 import { ResonanceMeter } from "./components/ResonanceMeter";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
@@ -294,6 +295,7 @@ export default function App(){
             muEffective={muEffective}
           />
           <KernelEditor kernel={kernel} setKernel={setKernel} />
+          <ReportPanel />
         </aside>
         <main className="w-full lg:w-3/5">
           <div id="grid">

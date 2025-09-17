@@ -30,6 +30,16 @@ De esta forma la atenuación de cada tic solo afecta al campo de potenciales Φ,
 - `𝓣` se calcula como la derivada discreta ∂R/∂𝓛 ≈ Δ‖R‖ / Δ‖𝓛‖: si la lattice cambia pero las métricas de la realidad apenas lo hacen, `𝓣` se reduce; cuando pequeñas variaciones estructurales producen grandes cambios en R, `𝓣` crece.
 - Este valor modulador aparece en la activación de eventos ε y en la retroalimentación `𝓡ₐ`, reforzando el Axioma IV donde el tiempo emerge del ritmo de actualización de R respecto a 𝓛.
 
+## Panel de resultados reproducibles
+
+- Desde el panel lateral puedes ejecutar un barrido automático de parámetros (`depth`, `boundaryNoise`, `kernelMix` y semillas) con más de 30 corridas.
+- El botón **Exportar reporte** descarga un CSV con todas las métricas (`R²` frente a perímetro/área, MSE de reconstrucción, varianza de ℜ, promedios de flujo) y una imagen PNG con la comparativa ley de área vs volumen.
+- También es posible generar los mismos archivos desde línea de comandos con:
+  ```bash
+  npx ts-node scripts/run_experiments.ts
+  ```
+  Los resultados se guardan en `reports/experimentos-<timestamp>.csv` y `.json`.
+
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
 - La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).

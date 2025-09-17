@@ -53,12 +53,12 @@ function arraysClose(a: number[], b: number[]) {
   return true;
 }
 
-const DEFAULT_DEPTH_DECAY = 0.85;
+export const DEFAULT_DEPTH_DECAY = 0.85;
 const HAMMING_ALPHA = 0.54;
 const HAMMING_BETA = 0.46;
 const HAMMING_WINDOW = 64;
 
-function buildDepthWeights(length: number, boundaryDepth: number, depthDecay: number) {
+export function buildDepthWeights(length: number, boundaryDepth: number, depthDecay: number) {
   if (length <= 0) return [];
   const limit = Math.max(0, Math.floor(boundaryDepth));
   const decay = clamp01(depthDecay);
@@ -115,7 +115,7 @@ type HolographicResult = {
   grid: number;
 };
 
-function computeHolographicBulk(
+export function computeHolographicBulk(
   boundaryValues: number[],
   particleCount: number,
   depth: number,

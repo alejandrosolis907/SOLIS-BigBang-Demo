@@ -166,9 +166,10 @@ export function sampleBoundaryEntropy(
   if (count === 0) {
     return [];
   }
+  const defaultArc = Math.floor(count / 12) || 3;
   const effectiveArc = Math.min(
     count,
-    Math.max(3, arcLength ?? Math.floor(count / 12) || 3),
+    Math.max(3, arcLength ?? defaultArc),
   );
   const stride = Math.max(1, Math.floor(effectiveArc / 2));
   const arcs: BoundaryEntropyArc[] = [];
