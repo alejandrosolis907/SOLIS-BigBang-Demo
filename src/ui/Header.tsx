@@ -8,7 +8,9 @@ type HeaderProps = {
   onExportCsv: () => void;
   onExportCapture: () => void;
   onToggleExperiments: () => void;
+  onToggleMetrics: () => void;
   experimentsOpen: boolean;
+  metricsOpen: boolean;
 };
 
 export function Header({
@@ -19,11 +21,14 @@ export function Header({
   onExportCsv,
   onExportCapture,
   onToggleExperiments,
+  onToggleMetrics,
   experimentsOpen,
+  metricsOpen,
 }: HeaderProps) {
-  const experimentsButtonClassName = experimentsOpen
-    ? "px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500"
-    : "px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700";
+  const toggleButtonClassName = (isActive: boolean) =>
+    isActive
+      ? "px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500"
+      : "px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700";
 
   return (
     <header className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-2">
@@ -48,7 +53,15 @@ export function Header({
           Exportar captura
         </button>
         <button
-          className={experimentsButtonClassName}
+          className={toggleButtonClassName(metricsOpen)}
+          onClick={onToggleMetrics}
+          aria-pressed={metricsOpen}
+          type="button"
+        >
+          {metricsOpen ? "Cerrar métricas" : "Métricas básicas"}
+        </button>
+        <button
+          className={toggleButtonClassName(experimentsOpen)}
           onClick={onToggleExperiments}
           aria-pressed={experimentsOpen}
           type="button"

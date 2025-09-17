@@ -9,6 +9,7 @@ import ReportPanel from "./ui/report";
 import { ResonanceMeter } from "./components/ResonanceMeter";
 import { Header } from "./ui/Header";
 import { ExperimentsPanel } from "./ui/ExperimentsPanel";
+import { MetricsPanel } from "./ui/MetricsPanel";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; phase: number; };
@@ -234,6 +235,7 @@ export default function App(){
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
   const [resetSignals, setResetSignals] = useState<number[]>(() => Array.from({length: COUNT}, ()=> 0));
   const [showExperimentsPanel, setShowExperimentsPanel] = useState(false);
+  const [showMetricsPanel, setShowMetricsPanel] = useState(false);
 
   useEffect(() => {
     setSeeds(Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
@@ -283,12 +285,15 @@ export default function App(){
         onExportCsv={exportExcel}
         onExportCapture={() => exportGridPng("grid")}
         onToggleExperiments={() => setShowExperimentsPanel((prev) => !prev)}
+        onToggleMetrics={() => setShowMetricsPanel((prev) => !prev)}
         experimentsOpen={showExperimentsPanel}
+        metricsOpen={showMetricsPanel}
       />
 
-      {showExperimentsPanel && (
-        <div className="mb-4">
-          <ExperimentsPanel onOpenDoc={openExperimentsDoc} />
+      {(showExperimentsPanel || showMetricsPanel) && (
+        <div className="space-y-4 mb-4">
+          {showMetricsPanel && <MetricsPanel seed={baseSeed} depth={gridSize} />}
+          {showExperimentsPanel && <ExperimentsPanel onOpenDoc={openExperimentsDoc} />}
         </div>
       )}
 

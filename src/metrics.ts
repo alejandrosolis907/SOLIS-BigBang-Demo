@@ -264,3 +264,15 @@ export function computeAreaLaw(
   };
 }
 
+
+export function getR2Perimeter(): number | null {
+  return null;
+}
+
+export function getR2Area(): number | null {
+  return null;
+}
+
+export function getBoundaryMode(): boolean | null {
+  return null;
+}
