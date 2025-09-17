@@ -264,6 +264,12 @@ export default function App(){
     URL.revokeObjectURL(url);
   };
 
+  const openExperimentsDoc = () => {
+    const experimentsUrl =
+      "https://github.com/SOLIS-Lab/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md";
+    window.open(experimentsUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
       <header className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-2">
@@ -275,6 +281,7 @@ export default function App(){
           <button className="px-3 py-1 rounded-xl bg-indigo-700 hover:bg-indigo-600" onClick={resetAllHard}>Big Bang ♻︎</button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={exportExcel}>Exportar CSV</button>
           <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={()=>exportGridPng("grid")}>Exportar captura</button>
+          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={openExperimentsDoc}>Experimentos</button>
         </div>
       </header>
 
