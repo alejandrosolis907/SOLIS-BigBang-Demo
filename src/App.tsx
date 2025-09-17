@@ -12,6 +12,13 @@ import { ExperimentsPanel } from "./ui/ExperimentsPanel";
 import { MetricsPanel } from "./ui/MetricsPanel";
 import { ParamsPanel } from "./ui/ParamsPanel";
 import type { EngineAdapterResult } from "./lib/physics/adapters";
+import type { ExperimentHints } from "./lib/bridge";
+
+declare global {
+  interface Window {
+    __BB_EXPERIMENT_HINTS__?: ExperimentHints | null;
+  }
+}
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; phase: number; };
@@ -241,6 +248,33 @@ export default function App(){
   const [appliedEngineSuggestions, setAppliedEngineSuggestions] =
     useState<EngineAdapterResult | null>(null);
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!appliedEngineSuggestions) {
+      window.__BB_EXPERIMENT_HINTS__ = null;
+      return;
+    }
+    const { suggestions } = appliedEngineSuggestions;
+    const normalizeNumeric = (value: number | null): number | null =>
+      typeof value === "number" && Number.isFinite(value) ? value : null;
+    const hints: ExperimentHints = {
+      noise: normalizeNumeric(suggestions.noise),
+      damping: normalizeNumeric(suggestions.damping),
+      kernel: suggestions.kernel ?? null,
+    };
+    window.__BB_EXPERIMENT_HINTS__ = hints;
+  }, [appliedEngineSuggestions]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined") {
+        window.__BB_EXPERIMENT_HINTS__ = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setSeeds(Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));

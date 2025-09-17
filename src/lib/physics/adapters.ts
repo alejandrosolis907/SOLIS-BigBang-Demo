@@ -3,6 +3,7 @@ import { validateParams } from './validators';
 
 export interface EngineSuggestions {
   readonly noise: number | null;
+  readonly damping: number | null;
   readonly threshold: number | null;
   readonly kernel: string | null;
   readonly gain: number | null;
@@ -19,6 +20,7 @@ export interface EngineAdapterResult {
 
 const BASE_SUGGESTIONS: EngineSuggestions = {
   noise: null,
+  damping: null,
   threshold: null,
   kernel: null,
   gain: null,
@@ -48,6 +50,7 @@ export const toEngine = (
       if (hasFiniteValue(fluctuation)) {
         suggestions.noise = fluctuation;
         suggestions.modulation = Number((fluctuation * 0.25).toFixed(6));
+        suggestions.damping = Number((1 / (1 + fluctuation)).toPrecision(6));
       }
 
       if (hasFiniteValue(energyDensity)) {
@@ -58,6 +61,7 @@ export const toEngine = (
       if (hasFiniteValue(correlationLength)) {
         suggestions.kernel = 'gaussian';
         suggestions.resolution = Number(correlationLength.toPrecision(6));
+        suggestions.damping = Number((1 / (1 + correlationLength)).toPrecision(6));
       } else if (resolvedEntry) {
         suggestions.kernel = 'gaussian';
       }
@@ -75,6 +79,7 @@ export const toEngine = (
 
       if (hasFiniteValue(barrierWidth)) {
         suggestions.resolution = Number(barrierWidth.toPrecision(6));
+        suggestions.damping = Number((Math.min(1, barrierWidth / 10 + 0.1)).toPrecision(6));
       }
 
       if (hasFiniteValue(temperature)) {
@@ -102,6 +107,7 @@ export const toEngine = (
             (fusionRate * confinementTime * 1e-3).toPrecision(6),
           );
         }
+        suggestions.damping = Number((1 - Math.exp(-Math.max(confinementTime, 0) / 10)).toPrecision(6));
       }
 
       if (hasFiniteValue(plasmaDensity)) {
@@ -131,6 +137,7 @@ export const toEngine = (
         if (hasFiniteValue(oscillationLength)) {
           suggestions.modulation = Number((massSplitting * oscillationLength).toPrecision(6));
         }
+        suggestions.damping = Number((Math.min(0.95, mixingAngle / 120)).toPrecision(6));
       }
 
       suggestions.kernel = 'wave';
@@ -150,12 +157,16 @@ export const toEngine = (
         if (hasFiniteValue(gasDensity) && turbulence !== 0) {
           suggestions.resolution = Number((gasDensity / turbulence).toPrecision(6));
         }
+        suggestions.damping = Number((Math.min(0.9, turbulence / 100)).toPrecision(6));
       }
 
       if (hasFiniteValue(metallicity)) {
         suggestions.gain = Number(metallicity.toPrecision(6));
         if (hasFiniteValue(turbulence)) {
           suggestions.modulation = Number((metallicity * turbulence).toPrecision(6));
+        }
+        if (!hasFiniteValue(turbulence)) {
+          suggestions.damping = Number((Math.min(0.9, metallicity)).toPrecision(6));
         }
       }
 
