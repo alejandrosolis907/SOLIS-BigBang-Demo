@@ -6,8 +6,13 @@ import {
   type PhysicsRegistryEntry,
 } from "../lib/physics/registry";
 import { validateParams, type ValidationResult } from "../lib/physics/validators";
-import { toEngine, type EngineAdapterResult } from "../lib/physics/adapters";
+import {
+  toEngine,
+  type EngineAdapterResult,
+  type EngineSuggestions,
+} from "../lib/physics/adapters";
 import { getPresetsForEntry, type PhysicsPreset } from "../lib/physics/presets";
+import { updateConstraintSatisfaction, updateHintsApplied } from "../metrics";
 
 type ParamsPanelProps = {
   onApplySuggestions: (result: EngineAdapterResult) => void;
@@ -55,6 +60,88 @@ const sanitizeInputsFromResult = (entry: PhysicsRegistryEntry, result: Validatio
     sanitized[key] = value != null ? value.toString() : "";
   });
   return sanitized;
+};
+
+const PARAMETER_WARNING_REGEX = /Parameter "([^"]+)"/i;
+
+const deriveConstraintCounts = (
+  entry: PhysicsRegistryEntry,
+  warnings: readonly string[],
+): { ok: number; failed: number } => {
+  const total = Object.keys(entry.inputs).length;
+  if (total === 0) {
+    return { ok: 0, failed: 0 };
+  }
+  const violations = new Set<string>();
+  warnings.forEach((warning) => {
+    const match = warning.match(PARAMETER_WARNING_REGEX);
+    if (!match) {
+      return;
+    }
+    const key = match[1];
+    if (Object.prototype.hasOwnProperty.call(entry.inputs, key)) {
+      violations.add(key);
+    }
+  });
+  return { ok: total - violations.size, failed: violations.size };
+};
+
+const recordConstraintMetrics = (entryId: string, warnings: readonly string[]): void => {
+  const entry = getRegistryEntry(entryId);
+  if (!entry) {
+    updateConstraintSatisfaction({
+      entryId,
+      constraintsOk: null,
+      constraintsFailed: null,
+    });
+    return;
+  }
+  const counts = deriveConstraintCounts(entry, warnings);
+  updateConstraintSatisfaction({
+    entryId: entry.id,
+    constraintsOk: counts.ok,
+    constraintsFailed: counts.failed,
+  });
+};
+
+const HINT_KEYS: readonly (keyof EngineSuggestions)[] = [
+  "noise",
+  "damping",
+  "kernel",
+  "threshold",
+  "gain",
+  "resolution",
+  "modulation",
+];
+
+const formatHintValue = (value: number | string): string => {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return "NaN";
+    }
+    return Number(value.toPrecision(6)).toString();
+  }
+  return value;
+};
+
+const buildHintStrings = (suggestions: EngineSuggestions): string[] => {
+  const result: string[] = [];
+  HINT_KEYS.forEach((key) => {
+    const value = suggestions[key];
+    if (value === null || value === undefined) {
+      return;
+    }
+    result.push(`${key}=${formatHintValue(value)}`);
+  });
+  return result;
+};
+
+const recordHintMetrics = (result: EngineAdapterResult): void => {
+  const hints = buildHintStrings(result.suggestions);
+  updateHintsApplied({
+    entryId: result.entryId,
+    hints: hints.length > 0 ? hints : [],
+  });
 };
 
 export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPanelProps) {
@@ -133,6 +220,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
     setValidationResult(result);
     setWarnings(result.warnings);
     setParamValues(sanitizeInputsFromResult(selectedEntry, result));
+    recordConstraintMetrics(result.entryId, result.warnings);
   };
 
   const handleApply = () => {
@@ -150,6 +238,8 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
       warnings: result.warnings,
     });
     setParamValues(sanitizedParams);
+    recordConstraintMetrics(result.entryId, result.warnings);
+    recordHintMetrics(result);
     onApplySuggestions(result);
   };
 
@@ -161,6 +251,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
     setValidationResult(result);
     setWarnings(result.warnings);
     setParamValues(sanitizeInputsFromResult(selectedEntry, result));
+    recordConstraintMetrics(result.entryId, result.warnings);
   };
 
   const renderConstraintDetails = (constraints: ConstraintDefinition) => (

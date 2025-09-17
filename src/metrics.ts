@@ -29,6 +29,142 @@ export type BoundaryEntropyArc = {
   centerY: number;
 };
 
+export type ConstraintSatisfactionSnapshot = {
+  entryId: string | null;
+  constraintsOk: number | null;
+  constraintsFailed: number | null;
+};
+
+export type HintsAppliedSnapshot = {
+  entryId: string | null;
+  hints: string[] | null;
+};
+
+type MetricsState = {
+  r2Perimeter: number | null;
+  r2Area: number | null;
+  boundaryMode: boolean | null;
+  constraintSatisfaction: ConstraintSatisfactionSnapshot;
+  hintsApplied: HintsAppliedSnapshot;
+};
+
+const createConstraintSnapshot = (): ConstraintSatisfactionSnapshot => ({
+  entryId: null,
+  constraintsOk: null,
+  constraintsFailed: null,
+});
+
+const createHintsSnapshot = (): HintsAppliedSnapshot => ({
+  entryId: null,
+  hints: null,
+});
+
+let metricsState: MetricsState = {
+  r2Perimeter: null,
+  r2Area: null,
+  boundaryMode: null,
+  constraintSatisfaction: createConstraintSnapshot(),
+  hintsApplied: createHintsSnapshot(),
+};
+
+const metricsListeners = new Set<() => void>();
+
+const notifyMetricsListeners = () => {
+  if (metricsListeners.size === 0) {
+    return;
+  }
+  metricsListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (error) {
+      console.error("metrics listener error", error);
+    }
+  });
+};
+
+const setMetricsState = (partial: Partial<MetricsState>) => {
+  let changed = false;
+  if ("r2Perimeter" in partial && !Object.is(partial.r2Perimeter, metricsState.r2Perimeter)) {
+    changed = true;
+  }
+  if ("r2Area" in partial && !Object.is(partial.r2Area, metricsState.r2Area)) {
+    changed = true;
+  }
+  if ("boundaryMode" in partial && !Object.is(partial.boundaryMode, metricsState.boundaryMode)) {
+    changed = true;
+  }
+  if (
+    "constraintSatisfaction" in partial &&
+    partial.constraintSatisfaction !== undefined &&
+    partial.constraintSatisfaction !== metricsState.constraintSatisfaction
+  ) {
+    changed = true;
+  }
+  if (
+    "hintsApplied" in partial &&
+    partial.hintsApplied !== undefined &&
+    partial.hintsApplied !== metricsState.hintsApplied
+  ) {
+    changed = true;
+  }
+
+  if (!changed) {
+    return;
+  }
+
+  metricsState = {
+    ...metricsState,
+    ...partial,
+  };
+  notifyMetricsListeners();
+};
+
+export const subscribeMetrics = (listener: () => void): (() => void) => {
+  metricsListeners.add(listener);
+  return () => {
+    metricsListeners.delete(listener);
+  };
+};
+
+export const getMetricsSnapshot = (): Readonly<MetricsState> => metricsState;
+
+export const updateConstraintSatisfaction = (
+  snapshot: ConstraintSatisfactionSnapshot | null,
+): void => {
+  const normalized = snapshot
+    ? {
+        entryId: snapshot.entryId ?? null,
+        constraintsOk: snapshot.constraintsOk ?? null,
+        constraintsFailed: snapshot.constraintsFailed ?? null,
+      }
+    : createConstraintSnapshot();
+
+  setMetricsState({ constraintSatisfaction: normalized });
+};
+
+export const updateHintsApplied = (snapshot: HintsAppliedSnapshot | null): void => {
+  const normalized = snapshot
+    ? {
+        entryId: snapshot.entryId ?? null,
+        hints: snapshot.hints ? [...snapshot.hints] : snapshot.hints,
+      }
+    : createHintsSnapshot();
+
+  setMetricsState({ hintsApplied: normalized });
+};
+
+export const getConstraintSatisfaction = (): ConstraintSatisfactionSnapshot => ({
+  ...metricsState.constraintSatisfaction,
+});
+
+export const getHintsApplied = (): HintsAppliedSnapshot => {
+  const { entryId, hints } = metricsState.hintsApplied;
+  return {
+    entryId,
+    hints: hints ? [...hints] : hints,
+  };
+};
+
 function shannonEntropy(values: number[]): number {
   let total = 0;
   for (const value of values) {
@@ -257,6 +393,11 @@ export function computeAreaLaw(
   const perimeterFit = linearRegression(perimeters, entropies);
   const areaFit = linearRegression(areas, entropies);
 
+  setMetricsState({
+    r2Perimeter: perimeterFit.r2,
+    r2Area: areaFit.r2,
+  });
+
   return {
     regions,
     perimeterFit,
@@ -266,13 +407,13 @@ export function computeAreaLaw(
 
 
 export function getR2Perimeter(): number | null {
-  return null;
+  return metricsState.r2Perimeter;
 }
 
 export function getR2Area(): number | null {
-  return null;
+  return metricsState.r2Area;
 }
 
 export function getBoundaryMode(): boolean | null {
-  return null;
+  return metricsState.boundaryMode;
 }
