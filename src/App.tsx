@@ -7,6 +7,9 @@ import { GlobalParamsPanel } from "./components/GlobalParamsPanel";
 import { KernelEditor } from "./components/KernelEditor";
 import ReportPanel from "./ui/report";
 import { ResonanceMeter } from "./components/ResonanceMeter";
+import { Header } from "./ui/Header";
+import { ExperimentsPanel } from "./ui/ExperimentsPanel";
+import { MetricsPanel } from "./ui/MetricsPanel";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; phase: number; };
@@ -231,6 +234,8 @@ export default function App(){
   const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
   const [resetSignals, setResetSignals] = useState<number[]>(() => Array.from({length: COUNT}, ()=> 0));
+  const [showExperimentsPanel, setShowExperimentsPanel] = useState(false);
+  const [showMetricsPanel, setShowMetricsPanel] = useState(false);
 
   useEffect(() => {
     setSeeds(Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
@@ -264,19 +269,33 @@ export default function App(){
     URL.revokeObjectURL(url);
   };
 
+  const openExperimentsDoc = () => {
+    const experimentsUrl =
+      "https://github.com/SOLIS-Lab/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md";
+    window.open(experimentsUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
-      <header className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-center sm:text-left">BigBangSim — Φ ∘ 𝓛(x) → R</h1>
-        <div className="flex flex-wrap justify-center sm:justify-end gap-2">
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={startAll}>Iniciar todo</button>
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={pauseAll}>Pausar todo</button>
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={resetAllSoft}>Reset 𝓣/R</button>
-          <button className="px-3 py-1 rounded-xl bg-indigo-700 hover:bg-indigo-600" onClick={resetAllHard}>Big Bang ♻︎</button>
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={exportExcel}>Exportar CSV</button>
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={()=>exportGridPng("grid")}>Exportar captura</button>
+      <Header
+        onStartAll={startAll}
+        onPauseAll={pauseAll}
+        onResetSoft={resetAllSoft}
+        onResetHard={resetAllHard}
+        onExportCsv={exportExcel}
+        onExportCapture={() => exportGridPng("grid")}
+        onToggleExperiments={() => setShowExperimentsPanel((prev) => !prev)}
+        onToggleMetrics={() => setShowMetricsPanel((prev) => !prev)}
+        experimentsOpen={showExperimentsPanel}
+        metricsOpen={showMetricsPanel}
+      />
+
+      {(showExperimentsPanel || showMetricsPanel) && (
+        <div className="space-y-4 mb-4">
+          {showMetricsPanel && <MetricsPanel seed={baseSeed} depth={gridSize} />}
+          {showExperimentsPanel && <ExperimentsPanel onOpenDoc={openExperimentsDoc} />}
         </div>
-      </header>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-4">
         <aside className="space-y-4 w-full lg:w-2/5">
