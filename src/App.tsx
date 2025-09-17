@@ -10,6 +10,8 @@ import { ResonanceMeter } from "./components/ResonanceMeter";
 import { Header } from "./ui/Header";
 import { ExperimentsPanel } from "./ui/ExperimentsPanel";
 import { MetricsPanel } from "./ui/MetricsPanel";
+import { ParamsPanel } from "./ui/ParamsPanel";
+import type { EngineAdapterResult } from "./lib/physics/adapters";
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; phase: number; };
@@ -235,6 +237,9 @@ export default function App(){
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
   const [resetSignals, setResetSignals] = useState<number[]>(() => Array.from({length: COUNT}, ()=> 0));
   const [showExperimentsPanel, setShowExperimentsPanel] = useState(false);
+  const [showParamsPanel, setShowParamsPanel] = useState(false);
+  const [appliedEngineSuggestions, setAppliedEngineSuggestions] =
+    useState<EngineAdapterResult | null>(null);
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
 
   useEffect(() => {
@@ -286,12 +291,20 @@ export default function App(){
         onExportCapture={() => exportGridPng("grid")}
         onToggleExperiments={() => setShowExperimentsPanel((prev) => !prev)}
         onToggleMetrics={() => setShowMetricsPanel((prev) => !prev)}
+        onToggleParams={() => setShowParamsPanel((prev) => !prev)}
         experimentsOpen={showExperimentsPanel}
         metricsOpen={showMetricsPanel}
+        paramsOpen={showParamsPanel}
       />
 
-      {(showExperimentsPanel || showMetricsPanel) && (
+      {(showExperimentsPanel || showMetricsPanel || showParamsPanel) && (
         <div className="space-y-4 mb-4">
+          {showParamsPanel && (
+            <ParamsPanel
+              onApplySuggestions={(result) => setAppliedEngineSuggestions(result)}
+              lastAppliedResult={appliedEngineSuggestions}
+            />
+          )}
           {showMetricsPanel && <MetricsPanel seed={baseSeed} depth={gridSize} />}
           {showExperimentsPanel && <ExperimentsPanel onOpenDoc={openExperimentsDoc} />}
         </div>
