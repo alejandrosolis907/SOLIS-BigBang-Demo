@@ -40,6 +40,8 @@ De esta forma la atenuación de cada tic solo afecta al campo de potenciales Φ,
   ```
   Los resultados se guardan en `reports/experimentos-<timestamp>.csv` y `.json`.
 
+Para el inventario metaontológico (Φ–𝓛) y la guía conceptual extendida de los experimentos, consulta [docs/README-Experimentos.md](docs/README-Experimentos.md).
+
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
 - La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).
