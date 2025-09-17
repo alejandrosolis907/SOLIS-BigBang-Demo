@@ -7,6 +7,7 @@ import {
 } from "../lib/physics/registry";
 import { validateParams, type ValidationResult } from "../lib/physics/validators";
 import { toEngine, type EngineAdapterResult } from "../lib/physics/adapters";
+import { getPresetsForEntry, type PhysicsPreset } from "../lib/physics/presets";
 
 type ParamsPanelProps = {
   onApplySuggestions: (result: EngineAdapterResult) => void;
@@ -66,6 +67,23 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
     return getRegistryEntry(selectedEntryId) ?? registryEntries[0];
   }, [registryEntries, selectedEntryId]);
 
+  const selectedEntryKey = selectedEntry?.id ?? "";
+  const availablePresets = useMemo<readonly PhysicsPreset[]>(() => {
+    if (!selectedEntryKey) {
+      return [];
+    }
+    return getPresetsForEntry(selectedEntryKey);
+  }, [selectedEntryKey]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>(
+    () => availablePresets[0]?.id ?? "",
+  );
+  const selectedPreset = useMemo<PhysicsPreset | null>(() => {
+    if (!availablePresets.length) {
+      return null;
+    }
+    return availablePresets.find((preset) => preset.id === selectedPresetId) ?? null;
+  }, [availablePresets, selectedPresetId]);
+
   const [paramValues, setParamValues] = useState<ParamInputs>(() =>
     selectedEntry ? buildDefaultInputs(selectedEntry) : {},
   );
@@ -80,6 +98,16 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
     setValidationResult(null);
     setWarnings([]);
   }, [selectedEntry]);
+
+  useEffect(() => {
+    setSelectedPresetId((current) => {
+      if (!availablePresets.length) {
+        return "";
+      }
+      const exists = availablePresets.some((preset) => preset.id === current);
+      return exists ? current : availablePresets[0].id;
+    });
+  }, [availablePresets]);
 
   if (!selectedEntry) {
     return null;
@@ -123,6 +151,16 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
     });
     setParamValues(sanitizedParams);
     onApplySuggestions(result);
+  };
+
+  const handleLoadPreset = () => {
+    if (!selectedPreset) {
+      return;
+    }
+    const result = validateParams(selectedPreset.entryId, selectedPreset.params);
+    setValidationResult(result);
+    setWarnings(result.warnings);
+    setParamValues(sanitizeInputsFromResult(selectedEntry, result));
   };
 
   const renderConstraintDetails = (constraints: ConstraintDefinition) => (
@@ -170,6 +208,43 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
             ))}
           </select>
           <p className="text-xs text-slate-400 mt-2">{selectedEntry.description}</p>
+        </div>
+        <div>
+          <label htmlFor="phi-preset" className="text-sm font-medium text-slate-200">
+            Preset
+          </label>
+          <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select
+              id="phi-preset"
+              className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              value={selectedPreset?.id ?? ""}
+              onChange={(event) => setSelectedPresetId(event.target.value)}
+              disabled={availablePresets.length === 0}
+            >
+              {availablePresets.length === 0 ? (
+                <option value="">Sin presets disponibles</option>
+              ) : (
+                availablePresets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </option>
+                ))
+              )}
+            </select>
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleLoadPreset}
+              disabled={!selectedPreset}
+            >
+              Cargar preset
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">
+            {selectedPreset
+              ? selectedPreset.description
+              : "Selecciona un preset para precargar parámetros sugeridos."}
+          </p>
         </div>
       </header>
 
