@@ -20,6 +20,15 @@ export type AreaLawMetrics = {
   areaFit: RegressionResult;
 };
 
+export type BoundaryEntropyArc = {
+  start: number;
+  end: number;
+  indices: number[];
+  entropy: number;
+  centerX: number;
+  centerY: number;
+};
+
 function shannonEntropy(values: number[]): number {
   let total = 0;
   for (const value of values) {
@@ -113,6 +122,80 @@ function buildSampleSizes(grid: number): number[] {
   sizes.add(Math.max(3, Math.floor(grid / 3)));
   sizes.add(Math.max(3, Math.floor(grid / 4)));
   return Array.from(sizes).filter((size) => size >= 3 && size <= grid).sort((a, b) => a - b);
+}
+
+type BoundarySample = {
+  index: number;
+  x: number;
+  y: number;
+};
+
+function buildBoundarySamples(grid: number): BoundarySample[] {
+  if (!Number.isFinite(grid) || grid <= 1) {
+    return [];
+  }
+  const samples: BoundarySample[] = [];
+  const limit = grid - 1;
+  const push = (x: number, y: number) => {
+    samples.push({ index: y * grid + x, x, y });
+  };
+  for (let x = 0; x <= limit; x++) {
+    push(x, 0);
+  }
+  for (let y = 1; y < limit; y++) {
+    push(limit, y);
+  }
+  if (limit > 0) {
+    for (let x = limit; x >= 0; x--) {
+      push(x, limit);
+    }
+    for (let y = limit - 1; y >= 1; y--) {
+      push(0, y);
+    }
+  }
+  return samples;
+}
+
+export function sampleBoundaryEntropy(
+  field: ArrayLike<number>,
+  grid: number,
+  arcLength?: number,
+): BoundaryEntropyArc[] {
+  const boundary = buildBoundarySamples(grid);
+  const count = boundary.length;
+  if (count === 0) {
+    return [];
+  }
+  const effectiveArc = Math.min(
+    count,
+    Math.max(3, arcLength ?? Math.floor(count / 12) || 3),
+  );
+  const stride = Math.max(1, Math.floor(effectiveArc / 2));
+  const arcs: BoundaryEntropyArc[] = [];
+  for (let start = 0; start < count; start += stride) {
+    let sumX = 0;
+    let sumY = 0;
+    const indices: number[] = [];
+    const values: number[] = [];
+    for (let j = 0; j < effectiveArc; j++) {
+      const sample = boundary[(start + j) % count];
+      indices.push(sample.index);
+      sumX += sample.x;
+      sumY += sample.y;
+      values.push(field[sample.index] ?? 0);
+    }
+    const entropy = shannonEntropy(values);
+    arcs.push({
+      start,
+      end: (start + effectiveArc - 1 + count) % count,
+      indices,
+      entropy,
+      centerX: sumX / effectiveArc,
+      centerY: sumY / effectiveArc,
+    });
+  }
+  arcs.sort((a, b) => b.entropy - a.entropy);
+  return arcs;
 }
 
 export function computeAreaLaw(
