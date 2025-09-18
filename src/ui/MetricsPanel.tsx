@@ -1,4 +1,4 @@
-import React, { useCallback, useSyncExternalStore } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   getConstraintSatisfaction,
   getHintsApplied,
@@ -22,6 +22,39 @@ const getPanelSnapshot = (): PanelSnapshot => ({
   hints: getHintsApplied(),
 });
 
+const subscribeToPanel = (listener: () => void): (() => void) => {
+  return subscribeMetrics(listener);
+};
+
+const constraintsEqual = (
+  a: ConstraintSatisfactionMetrics,
+  b: ConstraintSatisfactionMetrics,
+): boolean => {
+  return (
+    a.entryId === b.entryId &&
+    a.constraintsOk === b.constraintsOk &&
+    a.constraintsFailed === b.constraintsFailed
+  );
+};
+
+const hintsEqual = (a: HintsAppliedMetrics, b: HintsAppliedMetrics): boolean => {
+  if (a.entryId !== b.entryId) {
+    return false;
+  }
+  if (a.hints === "N/D" || b.hints === "N/D") {
+    return a.hints === b.hints;
+  }
+  if (a.hints.length !== b.hints.length) {
+    return false;
+  }
+  for (let i = 0; i < a.hints.length; i += 1) {
+    if (a.hints[i] !== b.hints[i]) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const formatCount = (value: number | "N/D"): string => {
   return value === "N/D" ? value : value.toString();
 };
@@ -37,11 +70,33 @@ const resolveHintsForCsv = (hints: readonly string[] | "N/D"): string => {
 };
 
 export function MetricsPanel(_props: MetricsPanelProps) {
-  const { constraints, hints } = useSyncExternalStore(
-    subscribeMetrics,
-    getPanelSnapshot,
-    getPanelSnapshot,
-  );
+  const [snapshot, setSnapshot] = useState<PanelSnapshot>(() => getPanelSnapshot());
+
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribe = subscribeToPanel(() => {
+      if (!isMounted) {
+        return;
+      }
+      setSnapshot((prev) => {
+        const next = getPanelSnapshot();
+        if (
+          constraintsEqual(prev.constraints, next.constraints) &&
+          hintsEqual(prev.hints, next.hints)
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    });
+    setSnapshot(getPanelSnapshot());
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const { constraints, hints } = snapshot;
 
   const activeEntryId =
     hints.entryId !== "N/D"
