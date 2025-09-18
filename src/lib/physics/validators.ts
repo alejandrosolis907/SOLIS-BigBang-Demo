@@ -119,6 +119,36 @@ const applyEntrySpecificConstraints = (
     case 'star-formation':
       enforceJeansLimit(entry, sanitized, warnings);
       break;
+    case 'social-dynamics':
+      enforceSocialDynamicsConstraints(entry, sanitized, warnings);
+      break;
+    case 'affective-bonds':
+      enforceAffectiveBondConstraints(entry, sanitized, warnings);
+      break;
+    case 'neuromarketing':
+      enforceNeuromarketingLimits(entry, sanitized, warnings);
+      break;
+    case 'reactionless-propulsion':
+      enforceReactionlessProhibition(entry, sanitized, warnings);
+      break;
+    case 'external-propulsion':
+      enforceExternalPropulsionBudgets(entry, sanitized, warnings);
+      break;
+    case 'sports-prediction':
+      enforceSportsPredictionBounds(entry, sanitized, warnings);
+      break;
+    case 'sports-climate':
+      enforceSportsClimateLimits(entry, sanitized, warnings);
+      break;
+    case 'climate-error-learning':
+      enforceClimateErrorLearning(entry, sanitized, warnings);
+      break;
+    case 'meta-learning':
+      enforceMetaLearningBounds(entry, sanitized, warnings);
+      break;
+    case 'multidomain-integration':
+      enforceMultidomainIntegration(entry, sanitized, warnings);
+      break;
     default:
       break;
   }
@@ -342,6 +372,640 @@ const enforceJeansLimit = (
       sanitized.turbulence,
     )} km/s to satisfy Jeans length ≥ ${MIN_JEANS_LENGTH_PC} pc.`,
   );
+};
+
+const enforceSocialDynamicsConstraints = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  const biasDefinition = entry.inputs.cooperationBias;
+  const networkDefinition = entry.inputs.networkDensity;
+  const loadDefinition = entry.inputs.cognitiveLoad;
+
+  const cooperationBias = sanitized.cooperationBias;
+  let networkDensity = sanitized.networkDensity;
+  let cognitiveLoad = sanitized.cognitiveLoad;
+
+  if (!isFiniteNumber(networkDensity) && networkDefinition) {
+    networkDensity = networkDefinition.default;
+    sanitized.networkDensity = networkDensity;
+    warnings.push(
+      `Parameter "networkDensity" reset to default ${formatNumber(
+        networkDensity,
+      )} to maintain topology constraints.`,
+    );
+  }
+
+  if (!isFiniteNumber(cognitiveLoad) && loadDefinition) {
+    cognitiveLoad = loadDefinition.default;
+    sanitized.cognitiveLoad = cognitiveLoad;
+    warnings.push(
+      `Parameter "cognitiveLoad" reset to default ${formatNumber(
+        cognitiveLoad,
+      )} under limited attention assumptions.`,
+    );
+  }
+
+  if (isFiniteNumber(networkDensity) && isFiniteNumber(cognitiveLoad)) {
+    const maxLoad = Math.min(0.85, Math.max(0.05, 0.75 - networkDensity * 0.3));
+    if (cognitiveLoad > maxLoad) {
+      sanitized.cognitiveLoad = toPrecisionNumber(maxLoad);
+      warnings.push(
+        `Parameter "cognitiveLoad" reduced to ${formatNumber(
+          sanitized.cognitiveLoad,
+        )} to respect attention limits at network density ${formatNumber(
+          networkDensity,
+        )}.`,
+      );
+      cognitiveLoad = sanitized.cognitiveLoad;
+    }
+  }
+
+  if (isFiniteNumber(cooperationBias) && biasDefinition) {
+    const density = isFiniteNumber(networkDensity)
+      ? Math.max(0, Math.min(1, networkDensity))
+      : networkDefinition?.default ?? 0.3;
+    const load = isFiniteNumber(cognitiveLoad)
+      ? Math.max(0, Math.min(1, cognitiveLoad))
+      : loadDefinition?.default ?? 0.4;
+    const attentionBudget = Math.max(0.2, 1 - load * 0.8);
+    const topologyPenalty = 1 - density * 0.4;
+    const maxBias = Math.max(
+      0.1,
+      Math.min(0.95, toPrecisionNumber(attentionBudget * topologyPenalty)),
+    );
+    if (cooperationBias > maxBias) {
+      sanitized.cooperationBias = toPrecisionNumber(maxBias);
+      warnings.push(
+        `Parameter "cooperationBias" limited to ${formatNumber(
+          sanitized.cooperationBias,
+        )} due to attention and topology constraints.`,
+      );
+    }
+  }
+};
+
+const enforceAffectiveBondConstraints = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  let privacyRisk = sanitized.privacyRisk;
+  const trustIndex = sanitized.trustIndex;
+  let oxytocinLevel = sanitized.oxytocinLevel;
+
+  if (!isFiniteNumber(privacyRisk)) {
+    privacyRisk = entry.inputs.privacyRisk?.default ?? 0.2;
+    sanitized.privacyRisk = privacyRisk;
+    warnings.push(
+      `Parameter "privacyRisk" reset to default ${formatNumber(
+        privacyRisk,
+      )} to enforce consent safeguards.`,
+    );
+  }
+
+  if (isFiniteNumber(trustIndex)) {
+    const maxTrust = Math.min(0.95, toPrecisionNumber(1 - privacyRisk * 0.45));
+    if (trustIndex > maxTrust) {
+      sanitized.trustIndex = maxTrust;
+      warnings.push(
+        `Parameter "trustIndex" reduced to ${formatNumber(
+          sanitized.trustIndex,
+        )} to honour privacy/consent boundaries.`,
+      );
+    }
+  }
+
+  if (isFiniteNumber(privacyRisk) && privacyRisk < 0.05) {
+    sanitized.privacyRisk = toPrecisionNumber(0.05);
+    warnings.push(
+      'Parameter "privacyRisk" elevated to 0.05 to avoid zero-consent modelling.',
+    );
+    privacyRisk = sanitized.privacyRisk;
+  }
+
+  if (!isFiniteNumber(oxytocinLevel)) {
+    oxytocinLevel = entry.inputs.oxytocinLevel?.default ?? 80;
+    sanitized.oxytocinLevel = oxytocinLevel;
+    warnings.push(
+      `Parameter "oxytocinLevel" reset to default ${formatNumber(
+        oxytocinLevel,
+      )} pmol/L for stability.`,
+    );
+  }
+
+  if (isFiniteNumber(oxytocinLevel) && oxytocinLevel > 160 && privacyRisk < 0.2) {
+    sanitized.oxytocinLevel = toPrecisionNumber(160);
+    sanitized.privacyRisk = toPrecisionNumber(0.2);
+    warnings.push(
+      'Parameters "oxytocinLevel" and "privacyRisk" adjusted to keep neurobiological excitation compatible with consent.',
+    );
+  }
+};
+
+const enforceNeuromarketingLimits = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  let frequency = sanitized.stimulusFrequency;
+  let duration = sanitized.sessionDuration;
+  let compliance = sanitized.ethicalCompliance;
+
+  if (!isFiniteNumber(frequency)) {
+    frequency = entry.inputs.stimulusFrequency?.default ?? 2;
+    sanitized.stimulusFrequency = frequency;
+    warnings.push(
+      `Parameter "stimulusFrequency" reset to default ${formatNumber(
+        frequency,
+      )} Hz to avoid undefined cadence.`,
+    );
+  }
+
+  if (!isFiniteNumber(duration)) {
+    duration = entry.inputs.sessionDuration?.default ?? 30;
+    sanitized.sessionDuration = duration;
+    warnings.push(
+      `Parameter "sessionDuration" reset to default ${formatNumber(
+        duration,
+      )} minutes for stability.`,
+    );
+  }
+
+  if (!isFiniteNumber(compliance)) {
+    compliance = entry.inputs.ethicalCompliance?.default ?? 0.6;
+    sanitized.ethicalCompliance = compliance;
+    warnings.push(
+      `Parameter "ethicalCompliance" reset to default ${formatNumber(
+        compliance,
+      )} to enforce legal constraints.`,
+    );
+  }
+
+  const maxExposure = 450;
+  const intensity = frequency * duration;
+  if (Number.isFinite(intensity) && intensity > maxExposure) {
+    const adjustedFrequency = Math.max(0, maxExposure / Math.max(duration, 1));
+    sanitized.stimulusFrequency = toPrecisionNumber(adjustedFrequency);
+    warnings.push(
+      `Parameter "stimulusFrequency" lowered to ${formatNumber(
+        sanitized.stimulusFrequency,
+      )} Hz to avoid attentional fatigue beyond ${maxExposure}.`,
+    );
+  }
+
+  if (compliance < 0.4) {
+    sanitized.ethicalCompliance = toPrecisionNumber(0.4);
+    warnings.push(
+      'Parameter "ethicalCompliance" raised to 0.4 as minimum regulatory threshold.',
+    );
+  }
+
+  if (sanitized.ethicalCompliance < 0.7) {
+    const adjustedLimit = 320;
+    const safeIntensity = sanitized.sessionDuration * sanitized.stimulusFrequency;
+    if (Number.isFinite(safeIntensity) && safeIntensity > adjustedLimit) {
+      const cappedFrequency = Math.max(0, adjustedLimit / Math.max(duration, 1));
+      sanitized.stimulusFrequency = toPrecisionNumber(cappedFrequency);
+      warnings.push(
+        `Parameter "stimulusFrequency" capped to ${formatNumber(
+          sanitized.stimulusFrequency,
+        )} Hz under reduced ethical compliance.`,
+      );
+    }
+  }
+};
+
+const enforceReactionlessProhibition = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  const { momentumDemand, energyInput, systemClosure } = sanitized;
+
+  if (momentumDemand > 0) {
+    sanitized.momentumDemand = 0;
+    warnings.push(
+      'Parameter "momentumDemand" set to 0 — reactionless propulsion is not permitted in closed systems.',
+    );
+  }
+
+  if (energyInput > 0) {
+    sanitized.energyInput = 0;
+    warnings.push(
+      'Parameter "energyInput" set to 0 to reflect conservation of momentum.',
+    );
+  }
+
+  if (!isFiniteNumber(systemClosure) || systemClosure < 1) {
+    sanitized.systemClosure = 1;
+    warnings.push(
+      'Parameter "systemClosure" forced to 1 (sistema cerrado) for the negative control case.',
+    );
+  }
+
+  warnings.push(
+    'Scenario enforces conservation laws: propulsión sin eyección de masa permanece deshabilitada.',
+  );
+};
+
+const enforceExternalPropulsionBudgets = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  let beamPower = sanitized.beamPower;
+  let sailArea = sanitized.sailArea;
+  let momentumFlux = sanitized.momentumFlux;
+
+  if (!isFiniteNumber(beamPower)) {
+    beamPower = entry.inputs.beamPower?.default ?? 1;
+    sanitized.beamPower = beamPower;
+    warnings.push(
+      `Parameter "beamPower" reset to default ${formatNumber(
+        beamPower,
+      )} MW due to invalid input.`,
+    );
+  }
+
+  if (!isFiniteNumber(sailArea)) {
+    sailArea = entry.inputs.sailArea?.default ?? 100;
+    sanitized.sailArea = sailArea;
+    warnings.push(
+      `Parameter "sailArea" reset to default ${formatNumber(
+        sailArea,
+      )} m^2 due to invalid input.`,
+    );
+  }
+
+  if (!isFiniteNumber(momentumFlux)) {
+    momentumFlux = entry.inputs.momentumFlux?.default ?? 0.1;
+    sanitized.momentumFlux = momentumFlux;
+    warnings.push(
+      `Parameter "momentumFlux" reset to default ${formatNumber(
+        momentumFlux,
+      )} N/m^2 due to invalid input.`,
+    );
+  }
+
+  const areaFactor = Math.max(1, Math.sqrt(Math.max(sailArea, 1) / 400));
+  const maxFlux = Math.max(0.01, toPrecisionNumber((beamPower * 0.08) / areaFactor));
+  if (momentumFlux > maxFlux) {
+    sanitized.momentumFlux = maxFlux;
+    warnings.push(
+      `Parameter "momentumFlux" limited to ${formatNumber(
+        maxFlux,
+      )} N/m^2 to remain within external momentum budgets.`,
+    );
+  }
+
+  const minPower = toPrecisionNumber((sanitized.momentumFlux * areaFactor) / 0.12);
+  if (beamPower < minPower) {
+    sanitized.beamPower = Math.min(
+      entry.inputs.beamPower?.constraints.max ?? Number.POSITIVE_INFINITY,
+      Math.max(minPower, beamPower),
+    );
+    warnings.push(
+      `Parameter "beamPower" increased to ${formatNumber(
+        sanitized.beamPower,
+      )} MW to support requested momentum flux.`,
+    );
+  }
+};
+
+const enforceSportsPredictionBounds = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  let variance = sanitized.priorVariance;
+  let sampleSize = sanitized.sampleSize;
+  let injuryUncertainty = sanitized.injuryUncertainty;
+
+  if (!isFiniteNumber(variance)) {
+    variance = entry.inputs.priorVariance?.default ?? 0.2;
+    sanitized.priorVariance = variance;
+    warnings.push(
+      `Parameter "priorVariance" reset to default ${formatNumber(
+        variance,
+      )} due to invalid input.`,
+    );
+  }
+
+  if (!isFiniteNumber(sampleSize)) {
+    sampleSize = entry.inputs.sampleSize?.default ?? 10;
+    sanitized.sampleSize = sampleSize;
+    warnings.push(
+      `Parameter "sampleSize" reset to default ${formatNumber(
+        sampleSize,
+      )} to maintain statistical grounding.`,
+    );
+  }
+
+  if (!isFiniteNumber(injuryUncertainty)) {
+    injuryUncertainty = entry.inputs.injuryUncertainty?.default ?? 0.2;
+    sanitized.injuryUncertainty = injuryUncertainty;
+    warnings.push(
+      `Parameter "injuryUncertainty" reset to default ${formatNumber(
+        injuryUncertainty,
+      )} to reflect residual variance.`,
+    );
+  }
+
+  const minSample = Math.min(
+    entry.inputs.sampleSize?.constraints.max ?? 500,
+    Math.max(5, Math.ceil(12 / Math.max(variance, 0.05))),
+  );
+  if (sampleSize < minSample) {
+    sanitized.sampleSize = minSample;
+    warnings.push(
+      `Parameter "sampleSize" raised to ${formatNumber(
+        sanitized.sampleSize,
+      )} to prevent overfitting with variance ${formatNumber(variance)}.`,
+    );
+  }
+
+  const maxVariance = Math.min(0.6, 1 / Math.sqrt(sanitized.sampleSize + 1));
+  if (variance > maxVariance) {
+    sanitized.priorVariance = toPrecisionNumber(maxVariance);
+    warnings.push(
+      `Parameter "priorVariance" reduced to ${formatNumber(
+        sanitized.priorVariance,
+      )} to respect sample-driven variance limits.`,
+    );
+  }
+
+  if (injuryUncertainty < 0.1 && sanitized.sampleSize < 40) {
+    sanitized.injuryUncertainty = toPrecisionNumber(0.1);
+    warnings.push(
+      'Parameter "injuryUncertainty" elevated to 0.1 to capture residual stochasticity.',
+    );
+  }
+};
+
+const enforceSportsClimateLimits = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  let temperature = sanitized.ambientTemperature;
+  let humidity = sanitized.humidity;
+  let acclimatization = sanitized.acclimatization;
+
+  if (!isFiniteNumber(temperature)) {
+    temperature = entry.inputs.ambientTemperature?.default ?? 20;
+    sanitized.ambientTemperature = temperature;
+    warnings.push(
+      `Parameter "ambientTemperature" reset to default ${formatNumber(
+        temperature,
+      )} °C due to invalid input.`,
+    );
+  }
+
+  if (!isFiniteNumber(humidity)) {
+    humidity = entry.inputs.humidity?.default ?? 50;
+    sanitized.humidity = humidity;
+    warnings.push(
+      `Parameter "humidity" reset to default ${formatNumber(
+        humidity,
+      )}% due to invalid input.`,
+    );
+  }
+
+  if (!isFiniteNumber(acclimatization)) {
+    acclimatization = entry.inputs.acclimatization?.default ?? 0.5;
+    sanitized.acclimatization = acclimatization;
+    warnings.push(
+      `Parameter "acclimatization" reset to default ${formatNumber(
+        acclimatization,
+      )} to maintain physiological realism.`,
+    );
+  }
+
+  const heatIndex = temperature + humidity * 0.1;
+  if (heatIndex > 60) {
+    const targetHumidity = Math.max(0, (60 - temperature) / 0.1);
+    sanitized.humidity = toPrecisionNumber(Math.min(targetHumidity, 100));
+    warnings.push(
+      `Parameter "humidity" reduced to ${formatNumber(
+        sanitized.humidity,
+      )}% to keep heat index within safe limits.`,
+    );
+  }
+
+  if (heatIndex > 50 && acclimatization < 0.2) {
+    sanitized.acclimatization = toPrecisionNumber(0.2);
+    warnings.push(
+      'Parameter "acclimatization" raised to 0.2 to avoid heat-exertion violations.',
+    );
+  }
+
+  if (temperature < -10 && acclimatization < 0.3) {
+    sanitized.acclimatization = toPrecisionNumber(0.3);
+    warnings.push(
+      'Parameter "acclimatization" raised to 0.3 to satisfy cold-weather constraints.',
+    );
+  }
+};
+
+const enforceClimateErrorLearning = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  let resolution = sanitized.observationResolution;
+  let modelOrder = sanitized.modelOrder;
+  let errorMemory = sanitized.errorMemory;
+
+  if (!isFiniteNumber(resolution)) {
+    resolution = entry.inputs.observationResolution?.default ?? 50;
+    sanitized.observationResolution = resolution;
+    warnings.push(
+      `Parameter "observationResolution" reset to default ${formatNumber(
+        resolution,
+      )} km due to invalid input.`,
+    );
+  }
+
+  if (!isFiniteNumber(modelOrder)) {
+    modelOrder = entry.inputs.modelOrder?.default ?? 3;
+    sanitized.modelOrder = modelOrder;
+    warnings.push(
+      `Parameter "modelOrder" reset to default ${formatNumber(
+        modelOrder,
+      )} to maintain model stability.`,
+    );
+  }
+
+  if (!isFiniteNumber(errorMemory)) {
+    errorMemory = entry.inputs.errorMemory?.default ?? 0.4;
+    sanitized.errorMemory = errorMemory;
+    warnings.push(
+      `Parameter "errorMemory" reset to default ${formatNumber(
+        errorMemory,
+      )} due to invalid input.`,
+    );
+  }
+
+  const minResolution = Math.max(5, modelOrder * 4);
+  if (resolution < minResolution) {
+    sanitized.observationResolution = toPrecisionNumber(minResolution);
+    warnings.push(
+      `Parameter "observationResolution" increased to ${formatNumber(
+        sanitized.observationResolution,
+      )} km to avoid undersampling relative to model order ${formatNumber(
+        modelOrder,
+      )}.`,
+    );
+  }
+
+  if (errorMemory > 0.85) {
+    sanitized.errorMemory = toPrecisionNumber(0.85);
+    warnings.push(
+      'Parameter "errorMemory" limited to 0.85 to prevent instability in feedback loops.',
+    );
+  }
+
+  if (sanitized.observationResolution < 15 && errorMemory > 0.5) {
+    sanitized.errorMemory = toPrecisionNumber(0.5);
+    warnings.push(
+      'Parameter "errorMemory" reduced to 0.5 for high-resolution assimilation.',
+    );
+  }
+};
+
+const enforceMetaLearningBounds = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  let controlGain = sanitized.controlGain;
+  let regularization = sanitized.regularization;
+  let identifiability = sanitized.identifiability;
+
+  if (!isFiniteNumber(controlGain)) {
+    controlGain = entry.inputs.controlGain?.default ?? 0.8;
+    sanitized.controlGain = controlGain;
+    warnings.push(
+      `Parameter "controlGain" reset to default ${formatNumber(
+        controlGain,
+      )} for stability.`,
+    );
+  }
+
+  if (!isFiniteNumber(regularization)) {
+    regularization = entry.inputs.regularization?.default ?? 0.3;
+    sanitized.regularization = regularization;
+    warnings.push(
+      `Parameter "regularization" reset to default ${formatNumber(
+        regularization,
+      )} to avoid instability.`,
+    );
+  }
+
+  if (!isFiniteNumber(identifiability)) {
+    identifiability = entry.inputs.identifiability?.default ?? 0.6;
+    sanitized.identifiability = identifiability;
+    warnings.push(
+      `Parameter "identifiability" reset to default ${formatNumber(
+        identifiability,
+      )} to preserve model coherence.`,
+    );
+  }
+
+  const maxGain = Math.max(0.1, toPrecisionNumber((1 - regularization) * 2.5));
+  if (controlGain > maxGain) {
+    sanitized.controlGain = toPrecisionNumber(maxGain);
+    warnings.push(
+      `Parameter "controlGain" limited to ${formatNumber(
+        sanitized.controlGain,
+      )} to maintain closed-loop stability.`,
+    );
+  }
+
+  if (regularization < 0.1) {
+    sanitized.regularization = toPrecisionNumber(0.1);
+    warnings.push('Parameter "regularization" raised to 0.1 to damp chaos amplification.');
+    regularization = sanitized.regularization;
+  }
+
+  const minIdentifiability = Math.min(0.95, toPrecisionNumber(regularization * 0.5 + 0.3));
+  if (identifiability < minIdentifiability) {
+    sanitized.identifiability = minIdentifiability;
+    warnings.push(
+      `Parameter "identifiability" increased to ${formatNumber(
+        sanitized.identifiability,
+      )} to ensure the system remains observable.`,
+    );
+  }
+};
+
+const enforceMultidomainIntegration = (
+  entry: PhysicsRegistryEntry,
+  sanitized: Record<string, number>,
+  warnings: string[],
+): void => {
+  let domains = sanitized.domainsCount;
+  let scaleVariance = sanitized.scaleVariance;
+  let privacyBudget = sanitized.privacyBudget;
+
+  if (!isFiniteNumber(domains)) {
+    domains = entry.inputs.domainsCount?.default ?? 2;
+    sanitized.domainsCount = domains;
+    warnings.push(
+      `Parameter "domainsCount" reset to default ${formatNumber(
+        domains,
+      )} to maintain integration scope.`,
+    );
+  }
+
+  if (!isFiniteNumber(scaleVariance)) {
+    scaleVariance = entry.inputs.scaleVariance?.default ?? 10;
+    sanitized.scaleVariance = scaleVariance;
+    warnings.push(
+      `Parameter "scaleVariance" reset to default ${formatNumber(
+        scaleVariance,
+      )}% due to invalid input.`,
+    );
+  }
+
+  if (!isFiniteNumber(privacyBudget)) {
+    privacyBudget = entry.inputs.privacyBudget?.default ?? 0.3;
+    sanitized.privacyBudget = privacyBudget;
+    warnings.push(
+      `Parameter "privacyBudget" reset to default ${formatNumber(
+        privacyBudget,
+      )} to maintain ethical compliance.`,
+    );
+  }
+
+  const maxVariance = Math.max(5, domains * 20);
+  if (scaleVariance > maxVariance) {
+    sanitized.scaleVariance = toPrecisionNumber(maxVariance);
+    warnings.push(
+      `Parameter "scaleVariance" limited to ${formatNumber(
+        sanitized.scaleVariance,
+      )}% to preserve cross-domain compatibility.`,
+    );
+  }
+
+  const maxPrivacy = Math.min(0.9, toPrecisionNumber(0.6 / Math.max(domains, 1) + 0.2));
+  if (privacyBudget > maxPrivacy) {
+    sanitized.privacyBudget = maxPrivacy;
+    warnings.push(
+      `Parameter "privacyBudget" capped at ${formatNumber(
+        sanitized.privacyBudget,
+      )} to satisfy privacy/ethics aggregation.`,
+    );
+  }
+
+  if (privacyBudget < 0.05) {
+    sanitized.privacyBudget = toPrecisionNumber(0.05);
+    warnings.push(
+      'Parameter "privacyBudget" raised to 0.05 to avoid degenerate privacy budgets.',
+    );
+  }
 };
 
 export const validateParams = (
