@@ -1,5 +1,5 @@
 export const DEFAULT_EXPERIMENTS_DOC_URL =
-  "https://github.com/alejandrosolis907/SOLIS-BigBang-Demo/blob/main/docs/axiomas.pdf";
+  "https://zenodo.org/records/15793537";
 
 type MaybeString = string | null | undefined;
 
