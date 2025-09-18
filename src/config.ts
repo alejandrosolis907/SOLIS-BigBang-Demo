@@ -1,5 +1,5 @@
 export const DEFAULT_EXPERIMENTS_DOC_URL =
-  "https://github.com/solis-labs/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md";
+  "https://github.com/alejandrosolis907/SOLIS-BigBang-Demo/blob/codex/add-new-rows-to-L-table/docs/README-Experimentos.md";
 
 export const DEFAULT_AXIOMS_DOC_URL =
   "https://zenodo.org/records/17153982";
