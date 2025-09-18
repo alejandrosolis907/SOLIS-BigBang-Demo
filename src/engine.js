@@ -486,7 +486,8 @@ export function resonance(phi, shaped, context=0, weights=null, tickCount=0){
 }
 
 export function tick(state){
-  applyExperimentHints(state, resolveExperimentHints(state));
+  const experimentHints = resolveExperimentHints(state);
+  applyExperimentHints(state, experimentHints);
   const {grid, preset, epsilon, rng, drift, mu = 0, customKernel} = state;
   const ms = state.metaSpace || metaSpace;
   if(ms.dimOmega < ms.dimPhi + 1){

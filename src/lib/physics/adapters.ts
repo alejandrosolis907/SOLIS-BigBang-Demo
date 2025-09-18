@@ -5,7 +5,7 @@ export interface EngineSuggestions {
   readonly noise: number | null;
   readonly damping: number | null;
   readonly threshold: number | null;
-  readonly kernel: string | null;
+  readonly kernelPreset: string | null;
   readonly gain: number | null;
   readonly resolution: number | null;
   readonly modulation: number | null;
@@ -22,7 +22,7 @@ const BASE_SUGGESTIONS: EngineSuggestions = {
   noise: null,
   damping: null,
   threshold: null,
-  kernel: null,
+  kernelPreset: null,
   gain: null,
   resolution: null,
   modulation: null,
@@ -59,11 +59,11 @@ export const toEngine = (
       }
 
       if (hasFiniteValue(correlationLength)) {
-        suggestions.kernel = 'gaussian';
+        suggestions.kernelPreset = 'gaussian';
         suggestions.resolution = Number(correlationLength.toPrecision(6));
         suggestions.damping = Number((1 / (1 + correlationLength)).toPrecision(6));
       } else if (resolvedEntry) {
-        suggestions.kernel = 'gaussian';
+        suggestions.kernelPreset = 'gaussian';
       }
       break;
     }
@@ -87,7 +87,7 @@ export const toEngine = (
         suggestions.modulation = Number((temperature * 0.1).toPrecision(6));
       }
 
-      suggestions.kernel = 'exponential';
+      suggestions.kernelPreset = 'exponential';
       break;
     }
     case 'nuclear': {
@@ -114,7 +114,7 @@ export const toEngine = (
         suggestions.threshold = Number(plasmaDensity.toPrecision(6));
       }
 
-      suggestions.kernel = 'lorentzian';
+      suggestions.kernelPreset = 'lorentzian';
       break;
     }
     case 'neutrino': {
@@ -140,7 +140,7 @@ export const toEngine = (
         suggestions.damping = Number((Math.min(0.95, mixingAngle / 120)).toPrecision(6));
       }
 
-      suggestions.kernel = 'wave';
+      suggestions.kernelPreset = 'wave';
       break;
     }
     case 'star-formation': {
@@ -170,12 +170,12 @@ export const toEngine = (
         }
       }
 
-      suggestions.kernel = 'adaptive';
+      suggestions.kernelPreset = 'adaptive';
       break;
     }
     default: {
       if (!resolvedEntry) {
-        suggestions.kernel = null;
+        suggestions.kernelPreset = null;
       }
       break;
     }

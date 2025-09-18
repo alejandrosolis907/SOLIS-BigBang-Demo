@@ -267,7 +267,8 @@ export default function App(){
     const hints: ExperimentHints = {
       noise: normalizeNumeric(suggestions.noise),
       damping: normalizeNumeric(suggestions.damping),
-      kernel: suggestions.kernel ?? null,
+      threshold: normalizeNumeric(suggestions.threshold),
+      kernelPreset: suggestions.kernelPreset ?? null,
     };
     window.__BB_EXPERIMENT_HINTS__ = hints;
   }, [appliedEngineSuggestions]);

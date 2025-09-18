@@ -1,20 +1,27 @@
 export interface ExperimentHints {
   readonly noise?: number | null;
   readonly damping?: number | null;
+  readonly threshold?: number | null;
+  readonly kernelPreset?: string | null;
+  /**
+   * @deprecated Mantiene compatibilidad con versiones previas que enviaban `kernel`.
+   */
   readonly kernel?: string | null;
 }
 
 interface BaselineSnapshot {
   noise?: number;
   damping?: number;
+  threshold?: number;
   kernelMix?: number;
-  preset?: string | null;
+  kernelPreset?: string | null;
 }
 
 interface AppliedSnapshot {
   noise: number | null;
   damping: number | null;
-  kernel: string | null;
+  threshold: number | null;
+  kernelPreset: string | null;
 }
 
 interface BridgeRecord {
@@ -33,23 +40,25 @@ const KERNEL_HINT_MAP: Record<string, { preset?: string; kernelMix?: number; use
 };
 
 const NUMERIC_SETTERS: Record<string, readonly string[]> = {
-  noise: ["setNoise", "setBoundaryNoise", "setBalance"],
+  noise: ["setNoise", "setBoundaryNoise", "setBalance", "setDrift"],
   damping: ["setDamping", "setMu", "setFriction"],
+  threshold: ["setThreshold", "setTheta", "setEpsilon", "setEventThreshold"],
   kernelMix: ["setKernelMix", "setBoundaryKernelMix"],
 };
 
 const NUMERIC_PROPERTIES: Record<string, readonly string[]> = {
   noise: ["drift", "noise", "boundaryNoise", "balance"],
   damping: ["mu", "damping", "friction"],
+  threshold: ["epsilon", "threshold", "theta", "eventThreshold"],
   kernelMix: ["kernelMix", "boundaryKernelMix"],
 };
 
 const STRING_SETTERS: Record<string, readonly string[]> = {
-  kernel: ["setKernel", "setPreset", "setKernelPreset"],
+  kernelPreset: ["setKernelPreset", "setPreset", "setKernel"],
 };
 
 const STRING_PROPERTIES: Record<string, readonly string[]> = {
-  kernel: ["preset", "kernelPreset"],
+  kernelPreset: ["kernelPreset", "preset"],
 };
 
 function isFiniteNumber(value: unknown): value is number {
@@ -179,6 +188,14 @@ function readDamping(state: Record<string, unknown>): number | undefined {
   return undefined;
 }
 
+function readThreshold(state: Record<string, unknown>): number | undefined {
+  if (isFiniteNumber(state.epsilon)) return state.epsilon;
+  if (isFiniteNumber(state.threshold)) return state.threshold;
+  if (isFiniteNumber(state.theta)) return state.theta;
+  if (isFiniteNumber(state.eventThreshold)) return state.eventThreshold;
+  return undefined;
+}
+
 function readKernelMix(state: Record<string, unknown>): number | undefined {
   if (isFiniteNumber(state.kernelMix)) return state.kernelMix;
   if (isFiniteNumber(state.boundaryKernelMix)) return state.boundaryKernelMix;
@@ -186,8 +203,8 @@ function readKernelMix(state: Record<string, unknown>): number | undefined {
 }
 
 function readKernelPreset(state: Record<string, unknown>): string | undefined {
-  if (typeof state.preset === "string" && state.preset) return state.preset;
   if (typeof state.kernelPreset === "string" && state.kernelPreset) return state.kernelPreset;
+  if (typeof state.preset === "string" && state.preset) return state.preset;
   return undefined;
 }
 
@@ -204,9 +221,9 @@ function applyKernelMapping(
   }
 
   if (mapping.preset) {
-    updateStringValue(state, "kernel", mapping.preset);
-  } else if (mapping.useBaselinePreset && baseline.preset) {
-    updateStringValue(state, "kernel", baseline.preset);
+    updateStringValue(state, "kernelPreset", mapping.preset);
+  } else if (mapping.useBaselinePreset && baseline.kernelPreset) {
+    updateStringValue(state, "kernelPreset", baseline.kernelPreset);
   }
 }
 
@@ -217,10 +234,11 @@ function ensureRecord(state: Record<string, unknown>): BridgeRecord {
       baseline: {
         noise: readNoise(state),
         damping: readDamping(state),
+        threshold: readThreshold(state),
         kernelMix: readKernelMix(state),
-        preset: readKernelPreset(state) ?? null,
+        kernelPreset: readKernelPreset(state) ?? null,
       },
-      applied: { noise: null, damping: null, kernel: null },
+      applied: { noise: null, damping: null, threshold: null, kernelPreset: null },
     };
     STATE_RECORD.set(state, record);
   }
@@ -230,11 +248,16 @@ function ensureRecord(state: Record<string, unknown>): BridgeRecord {
 function normalizeHints(hints: ExperimentHints | null | undefined): AppliedSnapshot {
   const noise = hints?.noise;
   const damping = hints?.damping;
-  const kernel = hints?.kernel;
+  const threshold = hints?.threshold;
+  const kernelHint = hints?.kernelPreset ?? hints?.kernel;
   return {
     noise: isFiniteNumber(noise) ? noise : null,
     damping: isFiniteNumber(damping) ? damping : null,
-    kernel: typeof kernel === "string" && kernel.trim() ? kernel.trim().toLowerCase() : null,
+    threshold: isFiniteNumber(threshold) ? threshold : null,
+    kernelPreset:
+      typeof kernelHint === "string" && kernelHint.trim()
+        ? kernelHint.trim().toLowerCase()
+        : null,
   };
 }
 
@@ -254,9 +277,13 @@ export function applyExperimentHints(
   if (normalized.damping === null && record.applied.damping === null) {
     record.baseline.damping = readDamping(state);
   }
-  if (normalized.kernel === null && record.applied.kernel === null) {
+  if (normalized.threshold === null && record.applied.threshold === null) {
+    record.baseline.threshold = readThreshold(state);
+  }
+  if (normalized.kernelPreset === null && record.applied.kernelPreset === null) {
     record.baseline.kernelMix = readKernelMix(state);
-    record.baseline.preset = readKernelPreset(state) ?? record.baseline.preset ?? null;
+    record.baseline.kernelPreset =
+      readKernelPreset(state) ?? record.baseline.kernelPreset ?? null;
   }
 
   // Apply noise hint
@@ -287,19 +314,34 @@ export function applyExperimentHints(
     record.applied.damping = null;
   }
 
+  // Apply threshold hint
+  if (normalized.threshold !== null) {
+    if (record.applied.threshold === null) {
+      record.baseline.threshold = readThreshold(state);
+    }
+    if (record.applied.threshold !== normalized.threshold) {
+      updateNumericValue(state, "threshold", clamp01(normalized.threshold));
+      record.applied.threshold = normalized.threshold;
+    }
+  } else if (record.applied.threshold !== null) {
+    updateNumericValue(state, "threshold", record.baseline.threshold);
+    record.applied.threshold = null;
+  }
+
   // Apply kernel hint
-  if (normalized.kernel) {
-    if (record.applied.kernel === null) {
+  if (normalized.kernelPreset) {
+    if (record.applied.kernelPreset === null) {
       record.baseline.kernelMix = readKernelMix(state);
-      record.baseline.preset = readKernelPreset(state) ?? record.baseline.preset ?? null;
+      record.baseline.kernelPreset =
+        readKernelPreset(state) ?? record.baseline.kernelPreset ?? null;
     }
-    if (record.applied.kernel !== normalized.kernel) {
-      applyKernelMapping(state, normalized.kernel, record.baseline);
-      record.applied.kernel = normalized.kernel;
+    if (record.applied.kernelPreset !== normalized.kernelPreset) {
+      applyKernelMapping(state, normalized.kernelPreset, record.baseline);
+      record.applied.kernelPreset = normalized.kernelPreset;
     }
-  } else if (record.applied.kernel !== null) {
+  } else if (record.applied.kernelPreset !== null) {
     updateNumericValue(state, "kernelMix", record.baseline.kernelMix);
-    updateStringValue(state, "kernel", record.baseline.preset ?? null);
-    record.applied.kernel = null;
+    updateStringValue(state, "kernelPreset", record.baseline.kernelPreset ?? null);
+    record.applied.kernelPreset = null;
   }
 }

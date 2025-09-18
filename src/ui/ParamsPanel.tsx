@@ -107,8 +107,8 @@ const recordConstraintMetrics = (entryId: string, warnings: readonly string[]): 
 const HINT_KEYS: readonly (keyof EngineSuggestions)[] = [
   "noise",
   "damping",
-  "kernel",
   "threshold",
+  "kernelPreset",
   "gain",
   "resolution",
   "modulation",
