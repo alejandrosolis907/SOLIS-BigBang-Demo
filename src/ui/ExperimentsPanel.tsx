@@ -16,16 +16,9 @@ const MAP_ROWS: Array<{ phi: string; lambda: string }> = [
   { phi: "Fenómenos atmosféricos (huracanes, auroras, arcoíris)", lambda: "Termodinámica, electromagnetismo, dinámica de fluidos" },
   { phi: "Mutación y evolución biológica", lambda: "ADN, tasas de mutación, leyes de la selección natural" },
   {
-    phi: "Dinámicas de relación social (cooperación, conflicto, difusión)",
-    lambda: "Psicología social, teoría de juegos, topología de redes, sesgos cognitivos, límites atencionales",
-  },
-  {
-    phi: "Vínculos afectivos y relaciones amorosas",
-    lambda: "Neurobiología del apego (oxitocina/dopamina), normas culturales, privacidad/consentimiento, sesgos",
-  },
-  {
-    phi: "Neuromarketing interpersonal y fidelización",
-    lambda: "Economía del comportamiento, límites éticos/legales, fatiga atencional, saturación de estímulos",
+    phi: "Mecanismos del comportamiento humano",
+    lambda:
+      "Psicología social, teoría de juegos, topología de redes, sesgos cognitivos, límites atencionales, neurobiología del apego (oxitocina/dopamina), normas culturales, privacidad/consentimiento, sesgos, juegos de validación, sistemas de intercambio de valor, economía del comportamiento, límites éticos/legales, fatiga atencional, saturación de estímulos",
   },
   { phi: "Emergencia de conciencia", lambda: "Neurobiología, coherencia cuántica (hipótesis en debate)" },
   { phi: "Muerte y regeneración parcial", lambda: "Límite de reparación celular, entropía biológica" },
@@ -45,7 +38,7 @@ const MAP_ROWS: Array<{ phi: string; lambda: string }> = [
   { phi: "Colonización espacial", lambda: "Ley de Tsiolkovsky, restricciones energéticas" },
   {
     phi: "Propulsión sin eyección de masa (reactionless)",
-    lambda: "Conservación de momento/energía, relatividad especial — no permitido en sistemas cerrados",
+    lambda: "Conservación de momento/energía, relatividad especial (→ **no permitido** en sistemas cerrados)",
   },
   {
     phi: "Propulsión con intercambio externo (vela solar/magnética, beam-riding)",
@@ -103,6 +96,10 @@ export function ExperimentsPanel({ onOpenDoc }: ExperimentsPanelProps) {
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-slate-400">
+        Nota: Propulsión sin eyección de masa no está permitida por conservación del momento (caso de prueba negativo).
+      </p>
 
       <section className="space-y-2 text-sm text-slate-200">
         <h3 className="text-sm font-semibold text-slate-300">Interpretación (Φ, 𝓛, R)</h3>
