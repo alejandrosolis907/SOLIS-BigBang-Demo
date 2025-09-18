@@ -7,6 +7,7 @@ type HeaderProps = {
   onResetHard: () => void;
   onExportCsv: () => void;
   onExportCapture: () => void;
+  onOpenExperimentsDoc: () => void;
   onToggleExperiments: () => void;
   onToggleMetrics: () => void;
   onToggleParams: () => void;
@@ -22,6 +23,7 @@ export function Header({
   onResetHard,
   onExportCsv,
   onExportCapture,
+  onOpenExperimentsDoc,
   onToggleExperiments,
   onToggleMetrics,
   onToggleParams,
@@ -55,6 +57,9 @@ export function Header({
         </button>
         <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={onExportCapture}>
           Exportar captura
+        </button>
+        <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={onOpenExperimentsDoc}>
+          Experimentos
         </button>
         <button
           className={toggleButtonClassName(metricsOpen)}

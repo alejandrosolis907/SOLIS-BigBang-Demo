@@ -327,6 +327,7 @@ export default function App(){
         onResetHard={resetAllHard}
         onExportCsv={exportExcel}
         onExportCapture={() => exportGridPng("grid")}
+        onOpenExperimentsDoc={openExperimentsDoc}
         onToggleExperiments={() => setShowExperimentsPanel((prev) => !prev)}
         onToggleMetrics={() => setShowMetricsPanel((prev) => !prev)}
         onToggleParams={() => setShowParamsPanel((prev) => !prev)}
