@@ -13,13 +13,14 @@ import { MetricsPanel } from "./ui/MetricsPanel";
 import { ParamsPanel } from "./ui/ParamsPanel";
 import type { EngineAdapterResult } from "./lib/physics/adapters";
 import type { ExperimentHints } from "./lib/bridge";
-
-const DEFAULT_EXPERIMENTS_DOC_URL =
-  "https://github.com/SOLIS-Lab/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md";
+import { getExperimentsDocUrl } from "./config";
 
 declare global {
   interface Window {
     __BB_EXPERIMENT_HINTS__?: ExperimentHints | null;
+    __BB_RUNTIME_CONFIG__?: {
+      experimentsDocUrl?: string | null;
+    };
   }
 }
 
@@ -312,9 +313,7 @@ export default function App(){
   };
 
   const openExperimentsDoc = () => {
-    const experimentsUrl =
-      (import.meta.env.VITE_EXPERIMENTS_DOC_URL ?? "").trim() ||
-      DEFAULT_EXPERIMENTS_DOC_URL;
+    const experimentsUrl = getExperimentsDocUrl();
     window.open(experimentsUrl, "_blank", "noopener,noreferrer");
   };
 

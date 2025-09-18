@@ -52,6 +52,8 @@ VITE_EXPERIMENTS_DOC_URL="https://github.com/alejandrosolis907/neon.r/blob/main/
 
 Al omitir la variable, la aplicación conserva el enlace predeterminado a la documentación de este repositorio (`SOLIS-Lab/SOLIS-BigBang-Demo`).
 
+En entornos desplegados con `server.js` (por ejemplo, Railway) también puedes definir la variable de entorno `EXPERIMENTS_DOC_URL` para ajustar la URL en tiempo de ejecución sin reconstruir el bundle. Si ambas (`VITE_EXPERIMENTS_DOC_URL` y `EXPERIMENTS_DOC_URL`) están presentes, el valor en tiempo de ejecución tiene prioridad al renderizar la aplicación.
+
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
 - La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).
