@@ -35,9 +35,20 @@ export type ConstraintSatisfactionSnapshot = {
   constraintsFailed: number | null;
 };
 
+export type ConstraintSatisfactionMetrics = {
+  entryId: string | "N/D";
+  constraintsOk: number | "N/D";
+  constraintsFailed: number | "N/D";
+};
+
 export type HintsAppliedSnapshot = {
   entryId: string | null;
   hints: string[] | null;
+};
+
+export type HintsAppliedMetrics = {
+  entryId: string | "N/D";
+  hints: readonly string[] | "N/D";
 };
 
 type MetricsState = {
@@ -153,15 +164,20 @@ export const updateHintsApplied = (snapshot: HintsAppliedSnapshot | null): void 
   setMetricsState({ hintsApplied: normalized });
 };
 
-export const getConstraintSatisfaction = (): ConstraintSatisfactionSnapshot => ({
-  ...metricsState.constraintSatisfaction,
-});
+export const getConstraintSatisfaction = (): ConstraintSatisfactionMetrics => {
+  const { entryId, constraintsOk, constraintsFailed } = metricsState.constraintSatisfaction;
+  return {
+    entryId: entryId ?? "N/D",
+    constraintsOk: constraintsOk ?? "N/D",
+    constraintsFailed: constraintsFailed ?? "N/D",
+  };
+};
 
-export const getHintsApplied = (): HintsAppliedSnapshot => {
+export const getHintsApplied = (): HintsAppliedMetrics => {
   const { entryId, hints } = metricsState.hintsApplied;
   return {
-    entryId,
-    hints: hints ? [...hints] : hints,
+    entryId: entryId ?? "N/D",
+    hints: hints ? [...hints] : "N/D",
   };
 };
 
