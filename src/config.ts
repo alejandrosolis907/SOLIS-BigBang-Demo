@@ -28,21 +28,28 @@ function readRuntimeConfig(): string {
 }
 
 function readViteEnv(): string {
+  const env = (
+    (import.meta as ImportMeta & {
+      env?: Record<string, unknown>;
+    })
+  ).env ?? (globalThis as { __BB_IMPORT_META_ENV__?: Record<string, unknown> })
+    .__BB_IMPORT_META_ENV__;
+
   const viteValue = normalizeCandidate(
-    (import.meta.env.VITE_EXPERIMENTS_DOC_URL as MaybeString) ?? ""
+    (env?.VITE_EXPERIMENTS_DOC_URL as MaybeString) ?? ""
   );
   return viteValue;
 }
 
 export function getExperimentsDocUrl(): string {
-  const fromVite = readViteEnv();
-  if (fromVite) {
-    return fromVite;
-  }
-
   const fromRuntime = readRuntimeConfig();
   if (fromRuntime) {
     return fromRuntime;
+  }
+
+  const fromVite = readViteEnv();
+  if (fromVite) {
+    return fromVite;
   }
 
   return DEFAULT_EXPERIMENTS_DOC_URL;
