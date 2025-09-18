@@ -40,14 +40,16 @@ El comando crea reportes en `reports/experimentos-<timestamp>.csv` y `reports/ex
 | Ciencia, arte, tecnología | Límites de energía y recursos disponibles |
 | Computación e inteligencia artificial | Teoría de la información, complejidad computacional |
 | Guerra y cooperación | Psicología, sociología, recursos materiales |
-| Redes sociales emergentes y movimientos sociales | Plataformas digitales, algoritmos de recomendación, regulación |
-| Vínculos afectivos y dinámicas amorosas | Neuroquímica, psicología evolutiva, normas culturales |
-| Campañas de neuromarketing y persuasión | Neuroeconomía, límites de percepción, ética comercial |
-| Propulsión sin masa/externa | Conservación del momento, intercambio de momento con el entorno |
-| Innovación deportiva y récords extremos | Fisiología humana, biomecánica, reglamentos deportivos |
-| Modelado y modificación climática a gran escala | Termodinámica, dinámica atmosférica, acuerdos internacionales |
-| Sistemas de meta-aprendizaje auto-mejorables | Teoría estadística, límites de generalización, coste computacional |
-| Coordinación multidominio (físico–bio–tecnológica) | Compatibilidad entre marcos teóricos, restricciones energéticas |
+| Dinámicas de relación social (cooperación, conflicto, difusión) | Psicología social, teoría de juegos, topología de redes, sesgos cognitivos, límites atencionales |
+| Vínculos afectivos y relaciones amorosas | Neurobiología del apego (oxitocina/dopamina), normas culturales, privacidad/consentimiento, sesgos |
+| Neuromarketing interpersonal y fidelización | Economía del comportamiento, límites éticos/legales, fatiga atencional, saturación de estímulos |
+| Propulsión sin eyección de masa (reactionless) | Conservación de momento/energía, relatividad especial (→ **no permitido** en sistemas cerrados) |
+| Propulsión con intercambio externo (vela solar/magnética, beam-riding) | Presupuesto de momento/energía del campo externo, límites de potencia/materiales |
+| Predicción de resultados deportivos | Estocasticidad del juego, varianza previa, límites de medición (lesiones, moral), overfitting |
+| Efecto del clima en el rendimiento deportivo | Termodinámica, dinámica de fluidos, límites fisiológicos, intercambio de calor |
+| Mejora de predicción climática via aprendizaje de errores | Caos determinista, límites de observación/resolución, complejidad computacional |
+| IA meta-aprendizaje para reducir efecto mariposa | Teoría de control/estabilidad, regularización, límites de identificabilidad |
+| Integración multidominio de Φ→𝓛 (misma fórmula en ámbitos distintos) | Compatibilidad de unidades/escala, causalidad, validación cruzada, privacidad/ética |
 | Colonización espacial | Ley de Tsiolkovsky, restricciones energéticas |
 | Ingeniería genética y biotecnología | Biología molecular, bioética, límites mutacionales |
 | Ciborgs y transhumanismo | Ingeniería biomédica, integración hombre-máquina |
