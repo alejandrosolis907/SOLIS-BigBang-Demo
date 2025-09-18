@@ -86,7 +86,7 @@ export function ExperimentsPanel({ onOpenDoc }: ExperimentsPanelProps) {
           onClick={onOpenDoc}
           type="button"
         >
-          Abrir en GitHub
+          Axiomas
         </button>
       </div>
     </section>

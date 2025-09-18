@@ -1,5 +1,5 @@
 export const DEFAULT_EXPERIMENTS_DOC_URL =
-  "https://github.com/SOLIS-Lab/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md";
+  "https://github.com/alejandrosolis907/SOLIS-BigBang-Demo/blob/main/docs/axiomas.pdf";
 
 type MaybeString = string | null | undefined;
 

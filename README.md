@@ -44,13 +44,13 @@ Para el inventario metaontológico (Φ–𝓛) y la guía conceptual extendida d
 
 ### Personalizar el enlace de documentación de experimentos
 
-Si publicas el simulador desde un repositorio distinto, puedes definir la URL que abre el botón **"Abrir en GitHub"** del panel de experimentos creando un archivo `.env` en la raíz con:
+Si publicas el simulador desde un repositorio distinto, puedes definir la URL que abre el botón **"Axiomas"** del panel de experimentos creando un archivo `.env` en la raíz con:
 
 ```bash
-VITE_EXPERIMENTS_DOC_URL="https://github.com/alejandrosolis907/neon.r/blob/main/docs/README-Experimentos.md"
+VITE_EXPERIMENTS_DOC_URL="https://github.com/alejandrosolis907/SOLIS-BigBang-Demo/blob/main/docs/axiomas.pdf"
 ```
 
-Al omitir la variable, la aplicación conserva el enlace predeterminado a la documentación de este repositorio (`SOLIS-Lab/SOLIS-BigBang-Demo`).
+Al omitir la variable, la aplicación conserva el enlace predeterminado al compendio de axiomas de este repositorio (`docs/axiomas.pdf`).
 
 En entornos desplegados con `server.js` (por ejemplo, Railway) también puedes definir la variable de entorno `EXPERIMENTS_DOC_URL` para ajustar la URL en tiempo de ejecución sin reconstruir el bundle. Si ambas (`VITE_EXPERIMENTS_DOC_URL` y `EXPERIMENTS_DOC_URL`) están presentes, el valor en tiempo de ejecución tiene prioridad al renderizar la aplicación.
 
