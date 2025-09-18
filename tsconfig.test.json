@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".tmp-tests",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": [],
+    "target": "ES2020"
+  },
+  "include": ["src/config.ts", "tests/**/*.mts"]
+}

@@ -42,6 +42,18 @@ De esta forma la atenuación de cada tic solo afecta al campo de potenciales Φ,
 
 Para el inventario metaontológico (Φ–𝓛) y la guía conceptual extendida de los experimentos, consulta [docs/README-Experimentos.md](docs/README-Experimentos.md).
 
+### Personalizar el enlace de documentación de experimentos
+
+Si publicas el simulador desde un repositorio distinto, puedes definir la URL que abre el botón **"Axiomas"** del panel de experimentos creando un archivo `.env` en la raíz con:
+
+```bash
+VITE_EXPERIMENTS_DOC_URL="https://zenodo.org/records/17153982"
+```
+
+Usa siempre direcciones completas que comiencen con `https://` o `http://` (por ejemplo, un PDF alojado en GitHub o Zenodo); cualquier valor relativo o sin protocolo se descartará y el botón volverá al enlace predeterminado alojado en Zenodo (`https://zenodo.org/records/17153982`).
+
+En entornos desplegados con `server.js` (por ejemplo, Railway) también puedes definir la variable de entorno `EXPERIMENTS_DOC_URL` para ajustar la URL en tiempo de ejecución sin reconstruir el bundle. Si ambas (`VITE_EXPERIMENTS_DOC_URL` y `EXPERIMENTS_DOC_URL`) están presentes, el valor en tiempo de ejecución tiene prioridad al renderizar la aplicación.
+
 ## Licencias
 - El código fuente se distribuye bajo la [Licencia Apache 2.0](LICENSE).
 - La documentación y axiomas incluidos en `docs/` se distribuyen bajo la licencia [CC BY-NC-ND 4.0](docs/LICENSE-docs-CC-BY-NC-ND-4.0.md).

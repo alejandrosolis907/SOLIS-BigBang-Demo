@@ -10,6 +10,19 @@ import { ResonanceMeter } from "./components/ResonanceMeter";
 import { Header } from "./ui/Header";
 import { ExperimentsPanel } from "./ui/ExperimentsPanel";
 import { MetricsPanel } from "./ui/MetricsPanel";
+import { ParamsPanel } from "./ui/ParamsPanel";
+import type { EngineAdapterResult } from "./lib/physics/adapters";
+import type { ExperimentHints } from "./lib/bridge";
+import { getExperimentsDocUrl } from "./config";
+
+declare global {
+  interface Window {
+    __BB_EXPERIMENT_HINTS__?: ExperimentHints | null;
+    __BB_RUNTIME_CONFIG__?: {
+      experimentsDocUrl?: string | null;
+    };
+  }
+}
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; phase: number; };
@@ -235,7 +248,37 @@ export default function App(){
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
   const [resetSignals, setResetSignals] = useState<number[]>(() => Array.from({length: COUNT}, ()=> 0));
   const [showExperimentsPanel, setShowExperimentsPanel] = useState(false);
+  const [showParamsPanel, setShowParamsPanel] = useState(false);
+  const [appliedEngineSuggestions, setAppliedEngineSuggestions] =
+    useState<EngineAdapterResult | null>(null);
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!appliedEngineSuggestions) {
+      window.__BB_EXPERIMENT_HINTS__ = null;
+      return;
+    }
+    const { suggestions } = appliedEngineSuggestions;
+    const normalizeNumeric = (value: number | null): number | null =>
+      typeof value === "number" && Number.isFinite(value) ? value : null;
+    const hints: ExperimentHints = {
+      noise: normalizeNumeric(suggestions.noise),
+      damping: normalizeNumeric(suggestions.damping),
+      kernel: suggestions.kernel ?? null,
+    };
+    window.__BB_EXPERIMENT_HINTS__ = hints;
+  }, [appliedEngineSuggestions]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined") {
+        window.__BB_EXPERIMENT_HINTS__ = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setSeeds(Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
@@ -270,8 +313,7 @@ export default function App(){
   };
 
   const openExperimentsDoc = () => {
-    const experimentsUrl =
-      "https://github.com/SOLIS-Lab/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md";
+    const experimentsUrl = getExperimentsDocUrl();
     window.open(experimentsUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -286,12 +328,20 @@ export default function App(){
         onExportCapture={() => exportGridPng("grid")}
         onToggleExperiments={() => setShowExperimentsPanel((prev) => !prev)}
         onToggleMetrics={() => setShowMetricsPanel((prev) => !prev)}
+        onToggleParams={() => setShowParamsPanel((prev) => !prev)}
         experimentsOpen={showExperimentsPanel}
         metricsOpen={showMetricsPanel}
+        paramsOpen={showParamsPanel}
       />
 
-      {(showExperimentsPanel || showMetricsPanel) && (
+      {(showExperimentsPanel || showMetricsPanel || showParamsPanel) && (
         <div className="space-y-4 mb-4">
+          {showParamsPanel && (
+            <ParamsPanel
+              onApplySuggestions={(result) => setAppliedEngineSuggestions(result)}
+              lastAppliedResult={appliedEngineSuggestions}
+            />
+          )}
           {showMetricsPanel && <MetricsPanel seed={baseSeed} depth={gridSize} />}
           {showExperimentsPanel && <ExperimentsPanel onOpenDoc={openExperimentsDoc} />}
         </div>

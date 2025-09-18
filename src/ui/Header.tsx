@@ -9,8 +9,10 @@ type HeaderProps = {
   onExportCapture: () => void;
   onToggleExperiments: () => void;
   onToggleMetrics: () => void;
+  onToggleParams: () => void;
   experimentsOpen: boolean;
   metricsOpen: boolean;
+  paramsOpen: boolean;
 };
 
 export function Header({
@@ -22,8 +24,10 @@ export function Header({
   onExportCapture,
   onToggleExperiments,
   onToggleMetrics,
+  onToggleParams,
   experimentsOpen,
   metricsOpen,
+  paramsOpen,
 }: HeaderProps) {
   const toggleButtonClassName = (isActive: boolean) =>
     isActive
@@ -59,6 +63,14 @@ export function Header({
           type="button"
         >
           {metricsOpen ? "Cerrar métricas" : "Métricas básicas"}
+        </button>
+        <button
+          className={toggleButtonClassName(paramsOpen)}
+          onClick={onToggleParams}
+          aria-pressed={paramsOpen}
+          type="button"
+        >
+          {paramsOpen ? "Cerrar Φ–𝓛" : "Panel Φ–𝓛"}
         </button>
         <button
           className={toggleButtonClassName(experimentsOpen)}

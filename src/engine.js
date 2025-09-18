@@ -4,6 +4,7 @@ import {
   trainDecoder,
   evaluateReconstruction,
 } from "./reconstruction.ts";
+import { applyExperimentHints } from "./lib/bridge.ts";
 
 // BigBang_PLUS engine — maps UI concepts to SOLIS axioms
 // Ω: not modeled
@@ -99,6 +100,29 @@ function clamp01(v){
 function blendKernel(mix=0){
   const m = clamp01(mix);
   return SMOOTH_KERNEL.map((s, i) => s * (1 - m) + RIGID_KERNEL[i] * m);
+}
+
+function normalizeHintSource(value) {
+  if (!value || typeof value !== "object") return null;
+  if (value.suggestions && typeof value.suggestions === "object") {
+    return value.suggestions;
+  }
+  return value;
+}
+
+function resolveExperimentHints(state) {
+  if (state) {
+    const direct = normalizeHintSource(state.experimentHints);
+    if (direct) return direct;
+    if (state.ui) {
+      const viaUi = normalizeHintSource(state.ui.experimentHints);
+      if (viaUi) return viaUi;
+    }
+  }
+  if (typeof window !== "undefined") {
+    return normalizeHintSource(window.__BB_EXPERIMENT_HINTS__);
+  }
+  return null;
 }
 
 function fract(x){
@@ -462,6 +486,7 @@ export function resonance(phi, shaped, context=0, weights=null, tickCount=0){
 }
 
 export function tick(state){
+  applyExperimentHints(state, resolveExperimentHints(state));
   const {grid, preset, epsilon, rng, drift, mu = 0, customKernel} = state;
   const ms = state.metaSpace || metaSpace;
   if(ms.dimOmega < ms.dimPhi + 1){
