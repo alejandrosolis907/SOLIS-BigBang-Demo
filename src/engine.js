@@ -1,10 +1,12 @@
-import { computeAreaLaw } from "./metrics.ts";
+import { computeAreaLaw, updateMetaLearnerMetrics } from "./metrics.ts";
 import {
   captureSample,
   trainDecoder,
   evaluateReconstruction,
 } from "./reconstruction.ts";
 import { applyExperimentHints } from "./lib/bridge.ts";
+import { applyMetaLearner } from "./lib/meta/learner.ts";
+import { resolveMetaLearnerEntryId } from "./lib/meta/context.ts";
 
 // BigBang_PLUS engine — maps UI concepts to SOLIS axioms
 // Ω: not modeled
@@ -444,6 +446,7 @@ const DEFAULT_RECON_STATE = () => ({
   mask: null,
   status: "idle",
   recalcPending: false,
+  meta: null,
 });
 
 function ensureReconstructionState(state){
@@ -488,6 +491,10 @@ export function resonance(phi, shaped, context=0, weights=null, tickCount=0){
 export function tick(state){
   const experimentHints = resolveExperimentHints(state);
   applyExperimentHints(state, experimentHints);
+  const metaEntryId = resolveMetaLearnerEntryId(state);
+  if (state && typeof state === "object") {
+    state.metaLearnerEntryId = metaEntryId;
+  }
   const {grid, preset, epsilon, rng, drift, mu = 0, customKernel} = state;
   const ms = state.metaSpace || metaSpace;
   if(ms.dimOmega < ms.dimPhi + 1){
@@ -553,6 +560,8 @@ export function tick(state){
       recon.maskedBoundary = null;
       recon.predicted = null;
       recon.mask = null;
+      recon.meta = null;
+      updateMetaLearnerMetrics(null);
       recon.pendingTrain = null;
     } else {
       const candidates = recon.samples.filter(sample => sample.boundary.length === boundarySize);
@@ -563,6 +572,8 @@ export function tick(state){
         recon.maskedBoundary = null;
         recon.predicted = null;
         recon.mask = null;
+        recon.meta = null;
+        updateMetaLearnerMetrics(null);
       } else {
         try {
           recon.model = trainDecoder(candidates, recon.pendingTrain);
@@ -570,6 +581,8 @@ export function tick(state){
           recon.recalcPending = true;
         } catch (err) {
           recon.status = `Error al entrenar: ${err instanceof Error ? err.message : String(err)}`;
+          recon.meta = null;
+          updateMetaLearnerMetrics(null);
         }
       }
       recon.pendingTrain = null;
@@ -596,13 +609,35 @@ export function tick(state){
             mode: recon.mode,
             offset: recon.offset,
           });
+          const metaOutcome = applyMetaLearner({
+            entryId: metaEntryId,
+            observed: targetSample.bulk,
+            predicted: result.predicted,
+          });
           recon.metrics = result.metrics;
           recon.maskedBoundary = result.maskedBoundary;
-          recon.predicted = result.predicted;
+          recon.predicted = metaOutcome.corrected ?? result.predicted;
           recon.mask = result.mask;
+          recon.meta = metaOutcome;
+          if (metaOutcome.applied) {
+            updateMetaLearnerMetrics({
+              entryId: metaOutcome.entryId,
+              domain: metaOutcome.domainLabel,
+              maeBefore: metaOutcome.maeBefore,
+              maeAfter: metaOutcome.maeAfter,
+              mapeBefore: metaOutcome.mapeBefore,
+              mapeAfter: metaOutcome.mapeAfter,
+              improvement: metaOutcome.improvement,
+              constraintsOk: metaOutcome.constraintsOk,
+            });
+          } else {
+            updateMetaLearnerMetrics(null);
+          }
           recon.recalcPending = false;
         } catch (err) {
           recon.status = `Error al evaluar: ${err instanceof Error ? err.message : String(err)}`;
+          recon.meta = null;
+          updateMetaLearnerMetrics(null);
         }
       }
     } else {
@@ -610,6 +645,8 @@ export function tick(state){
       recon.maskedBoundary = null;
       recon.predicted = null;
       recon.mask = null;
+      recon.meta = null;
+      updateMetaLearnerMetrics(null);
     }
   }
   // Axioma XI: R como cociente Ω/(Φ∘𝓛)
@@ -747,6 +784,8 @@ export function clearReconstruction(state){
   recon.maskedBoundary = null;
   recon.predicted = null;
   recon.mask = null;
+  recon.meta = null;
+  updateMetaLearnerMetrics(null);
   recon.status = "Reconstrucción reiniciada";
   recon.recalcPending = false;
   return recon;

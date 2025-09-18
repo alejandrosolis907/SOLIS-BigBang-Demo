@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   getConstraintSatisfaction,
   getHintsApplied,
+  getMetaLearnerMetrics,
   subscribeMetrics,
   type ConstraintSatisfactionMetrics,
   type HintsAppliedMetrics,
+  type MetaLearnerMetrics,
 } from "../metrics";
 
 type MetricsPanelProps = {
@@ -15,11 +17,13 @@ type MetricsPanelProps = {
 type PanelSnapshot = {
   constraints: ConstraintSatisfactionMetrics;
   hints: HintsAppliedMetrics;
+  meta: MetaLearnerMetrics;
 };
 
 const getPanelSnapshot = (): PanelSnapshot => ({
   constraints: getConstraintSatisfaction(),
   hints: getHintsApplied(),
+  meta: getMetaLearnerMetrics(),
 });
 
 const subscribeToPanel = (listener: () => void): (() => void) => {
@@ -55,8 +59,63 @@ const hintsEqual = (a: HintsAppliedMetrics, b: HintsAppliedMetrics): boolean => 
   return true;
 };
 
+const metaEqual = (a: MetaLearnerMetrics, b: MetaLearnerMetrics): boolean => {
+  return (
+    a.entryId === b.entryId &&
+    a.domain === b.domain &&
+    a.maeBefore === b.maeBefore &&
+    a.maeAfter === b.maeAfter &&
+    a.mapeBefore === b.mapeBefore &&
+    a.mapeAfter === b.mapeAfter &&
+    a.improvement === b.improvement &&
+    a.constraintsOk === b.constraintsOk
+  );
+};
+
 const formatCount = (value: number | "N/D"): string => {
   return value === "N/D" ? value : value.toString();
+};
+
+const formatMae = (value: number | "N/D"): string => {
+  if (value === "N/D") {
+    return value;
+  }
+  if (!Number.isFinite(value)) {
+    return "N/D";
+  }
+  return value.toFixed(4);
+};
+
+const formatMape = (value: number | "N/D"): string => {
+  if (value === "N/D") {
+    return value;
+  }
+  if (!Number.isFinite(value)) {
+    return "N/D";
+  }
+  return `${(value * 100).toFixed(2)}%`;
+};
+
+const formatImprovement = (value: number | "N/D"): string => {
+  if (value === "N/D") {
+    return value;
+  }
+  if (!Number.isFinite(value)) {
+    return "N/D";
+  }
+  const formatted = Math.abs(value) < 1e-9 ? 0 : value;
+  const text = Number(formatted).toFixed(4);
+  if (formatted > 0) {
+    return `+${text}`;
+  }
+  return text;
+};
+
+const formatCompliance = (value: "N/D" | boolean): string => {
+  if (value === "N/D") {
+    return value;
+  }
+  return value ? "Sí" : "No";
 };
 
 const resolveHintsForCsv = (hints: readonly string[] | "N/D"): string => {
@@ -82,7 +141,8 @@ export function MetricsPanel(_props: MetricsPanelProps) {
         const next = getPanelSnapshot();
         if (
           constraintsEqual(prev.constraints, next.constraints) &&
-          hintsEqual(prev.hints, next.hints)
+          hintsEqual(prev.hints, next.hints) &&
+          metaEqual(prev.meta, next.meta)
         ) {
           return prev;
         }
@@ -96,7 +156,7 @@ export function MetricsPanel(_props: MetricsPanelProps) {
     };
   }, []);
 
-  const { constraints, hints } = snapshot;
+  const { constraints, hints, meta } = snapshot;
 
   const activeEntryId =
     hints.entryId !== "N/D"
@@ -112,6 +172,15 @@ export function MetricsPanel(_props: MetricsPanelProps) {
   const constraintsFailedDisplay = formatCount(constraints.constraintsFailed);
   const hintsList = hints.hints === "N/D" ? "N/D" : [...hints.hints];
   const csvHints = resolveHintsForCsv(hintsList);
+
+  const metaEntryId = meta.entryId !== "N/D" ? meta.entryId : "N/D";
+  const metaDomain = meta.domain !== "N/D" ? meta.domain : "N/D";
+  const metaMaeBefore = formatMae(meta.maeBefore);
+  const metaMaeAfter = formatMae(meta.maeAfter);
+  const metaMapeBefore = formatMape(meta.mapeBefore);
+  const metaMapeAfter = formatMape(meta.mapeAfter);
+  const metaImprovement = formatImprovement(meta.improvement);
+  const metaCompliance = formatCompliance(meta.constraintsOk);
 
   const handleExport = useCallback(() => {
     const timestamp = new Date().toISOString();
@@ -159,6 +228,32 @@ export function MetricsPanel(_props: MetricsPanelProps) {
               <li key={`${hint}-${index}`}>{hint}</li>
             ))}
           </ul>
+        )}
+      </div>
+
+      <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800/60 space-y-3">
+        <div className="text-xs uppercase tracking-wide text-slate-400">Meta-aprendizaje Φ→𝓛→R</div>
+        {meta.entryId === "N/D" ? (
+          <p className="text-sm text-slate-500">N/D</p>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MetricSummary label="MAE antes" value={metaMaeBefore} />
+              <MetricSummary label="MAE después" value={metaMaeAfter} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MetricSummary label="MAPE antes" value={metaMapeBefore} />
+              <MetricSummary label="MAPE después" value={metaMapeAfter} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MetricSummary label="Mejora absoluta" value={metaImprovement} />
+              <MetricSummary label="Cumplimiento 𝓛" value={metaCompliance} />
+            </div>
+            <div className="grid gap-2 text-sm text-slate-300">
+              <DetailRow label="Entrada meta" value={metaEntryId} />
+              <DetailRow label="Dominio meta" value={metaDomain} />
+            </div>
+          </div>
         )}
       </div>
 

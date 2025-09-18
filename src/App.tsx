@@ -21,6 +21,9 @@ declare global {
     __BB_RUNTIME_CONFIG__?: {
       experimentsDocUrl?: string | null;
     };
+    __BB_EXPERIMENT_CONTEXT__?: {
+      entryId?: string | null;
+    } | null;
   }
 }
 
@@ -259,6 +262,7 @@ export default function App(){
     }
     if (!appliedEngineSuggestions) {
       window.__BB_EXPERIMENT_HINTS__ = null;
+      window.__BB_EXPERIMENT_CONTEXT__ = null;
       return;
     }
     const { suggestions } = appliedEngineSuggestions;
@@ -271,12 +275,16 @@ export default function App(){
       kernelPreset: suggestions.kernelPreset ?? null,
     };
     window.__BB_EXPERIMENT_HINTS__ = hints;
+    window.__BB_EXPERIMENT_CONTEXT__ = {
+      entryId: appliedEngineSuggestions.entryId,
+    };
   }, [appliedEngineSuggestions]);
 
   useEffect(() => {
     return () => {
       if (typeof window !== "undefined") {
         window.__BB_EXPERIMENT_HINTS__ = null;
+        window.__BB_EXPERIMENT_CONTEXT__ = null;
       }
     };
   }, []);
