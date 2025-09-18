@@ -13,7 +13,7 @@ import { MetricsPanel } from "./ui/MetricsPanel";
 import { ParamsPanel } from "./ui/ParamsPanel";
 import type { EngineAdapterResult } from "./lib/physics/adapters";
 import type { ExperimentHints } from "./lib/bridge";
-import { getExperimentsDocUrl } from "./config";
+import { getAxiomsDocUrl, getExperimentsDocUrl } from "./config";
 
 declare global {
   interface Window {
@@ -313,10 +313,15 @@ export default function App(){
     URL.revokeObjectURL(url);
   };
 
-  const openExperimentsDoc = () => {
+  const openExperimentsDoc = React.useCallback(() => {
     const experimentsUrl = getExperimentsDocUrl();
     window.open(experimentsUrl, "_blank", "noopener,noreferrer");
-  };
+  }, []);
+
+  const openAxiomsDoc = React.useCallback(() => {
+    const axiomsUrl = getAxiomsDocUrl();
+    window.open(axiomsUrl, "_blank", "noopener,noreferrer");
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
@@ -345,7 +350,7 @@ export default function App(){
             />
           )}
           {showMetricsPanel && <MetricsPanel seed={baseSeed} depth={gridSize} />}
-          {showExperimentsPanel && <ExperimentsPanel onOpenDoc={openExperimentsDoc} />}
+          {showExperimentsPanel && <ExperimentsPanel onOpenDoc={openAxiomsDoc} />}
         </div>
       )}
 
