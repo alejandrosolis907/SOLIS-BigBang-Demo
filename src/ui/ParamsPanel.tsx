@@ -224,8 +224,9 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
   };
 
   const handleApply = () => {
-    const baseParams = validationResult?.params ?? buildPayload();
-    const result = toEngine(selectedEntry.id, baseParams);
+    const rawParams = buildPayload();
+    const validation = validateParams(selectedEntry.id, rawParams);
+    const result = toEngine(validation.entryId, validation.params);
     setValidationResult({
       entryId: result.entryId,
       params: result.params,
