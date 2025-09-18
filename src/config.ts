@@ -1,5 +1,5 @@
 export const DEFAULT_EXPERIMENTS_DOC_URL =
-  "https://zenodo.org/records/15793537";
+  "https://zenodo.org/records/17153982";
 
 type MaybeString = string | null | undefined;
 

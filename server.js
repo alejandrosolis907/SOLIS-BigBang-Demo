@@ -6,7 +6,7 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DEFAULT_EXPERIMENTS_DOC_URL = 'https://zenodo.org/records/15793537';
+const DEFAULT_EXPERIMENTS_DOC_URL = 'https://zenodo.org/records/17153982';
 
 app.use(compression());
 app.use(express.json());
