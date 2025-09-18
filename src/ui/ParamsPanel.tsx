@@ -13,6 +13,7 @@ import {
 } from "../lib/physics/adapters";
 import { getPresetsForEntry, type PhysicsPreset } from "../lib/physics/presets";
 import { updateConstraintSatisfaction, updateHintsApplied } from "../metrics";
+import { getExperimentsDocUrl } from "../config";
 
 type ParamsPanelProps = {
   onApplySuggestions: (result: EngineAdapterResult) => void;
@@ -155,6 +156,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
   }, [registryEntries, selectedEntryId]);
 
   const selectedEntryKey = selectedEntry?.id ?? "";
+  const experimentsDocUrl = useMemo(() => getExperimentsDocUrl(), []);
   const availablePresets = useMemo<readonly PhysicsPreset[]>(() => {
     if (!selectedEntryKey) {
       return [];
@@ -283,6 +285,15 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
         <p className="text-sm text-slate-400">
           Selecciona un suceso Φ y ajusta sus parámetros antes de validar contra las limitantes 𝓛.
         </p>
+        <a
+          href={experimentsDocUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 text-xs text-emerald-300 hover:text-emerald-200"
+        >
+          Ver README-Experimentos
+          <span aria-hidden="true">↗</span>
+        </a>
         <div>
           <label htmlFor="phi-entry" className="text-sm font-medium text-slate-200">
             Suceso Φ
