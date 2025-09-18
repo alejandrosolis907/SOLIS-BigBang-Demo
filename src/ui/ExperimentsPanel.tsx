@@ -15,6 +15,18 @@ const MAP_ROWS: Array<{ phi: string; lambda: string }> = [
   { phi: "Actividad volcánica, tectónica y sísmica", lambda: "Física de materiales, gravedad, geodinámica" },
   { phi: "Fenómenos atmosféricos (huracanes, auroras, arcoíris)", lambda: "Termodinámica, electromagnetismo, dinámica de fluidos" },
   { phi: "Mutación y evolución biológica", lambda: "ADN, tasas de mutación, leyes de la selección natural" },
+  {
+    phi: "Dinámicas de relación social (cooperación, conflicto, difusión)",
+    lambda: "Psicología social, teoría de juegos, topología de redes, sesgos cognitivos, límites atencionales",
+  },
+  {
+    phi: "Vínculos afectivos y relaciones amorosas",
+    lambda: "Neurobiología del apego (oxitocina/dopamina), normas culturales, privacidad/consentimiento, sesgos",
+  },
+  {
+    phi: "Neuromarketing interpersonal y fidelización",
+    lambda: "Economía del comportamiento, límites éticos/legales, fatiga atencional, saturación de estímulos",
+  },
   { phi: "Emergencia de conciencia", lambda: "Neurobiología, coherencia cuántica (hipótesis en debate)" },
   { phi: "Muerte y regeneración parcial", lambda: "Límite de reparación celular, entropía biológica" },
   { phi: "Formación de estrellas y planetas", lambda: "Colapso gravitatorio, límite de Jeans" },
@@ -31,6 +43,34 @@ const MAP_ROWS: Array<{ phi: string; lambda: string }> = [
   { phi: "Computación e inteligencia artificial", lambda: "Teoría de la información, complejidad computacional" },
   { phi: "Guerra y cooperación", lambda: "Psicología, sociología, recursos materiales" },
   { phi: "Colonización espacial", lambda: "Ley de Tsiolkovsky, restricciones energéticas" },
+  {
+    phi: "Propulsión sin eyección de masa (reactionless)",
+    lambda: "Conservación de momento/energía, relatividad especial — no permitido en sistemas cerrados",
+  },
+  {
+    phi: "Propulsión con intercambio externo (vela solar/magnética, beam-riding)",
+    lambda: "Presupuesto de momento/energía del campo externo, límites de potencia/materiales",
+  },
+  {
+    phi: "Predicción de resultados deportivos",
+    lambda: "Estocasticidad del juego, varianza previa, límites de medición (lesiones, moral), overfitting",
+  },
+  {
+    phi: "Efecto del clima en el rendimiento deportivo",
+    lambda: "Termodinámica, dinámica de fluidos, límites fisiológicos, intercambio de calor",
+  },
+  {
+    phi: "Mejora de predicción climática via aprendizaje de errores",
+    lambda: "Caos determinista, límites de observación/resolución, complejidad computacional",
+  },
+  {
+    phi: "IA meta-aprendizaje para reducir efecto mariposa",
+    lambda: "Teoría de control/estabilidad, regularización, límites de identificabilidad",
+  },
+  {
+    phi: "Integración multidominio de Φ→𝓛 (misma fórmula en ámbitos distintos)",
+    lambda: "Compatibilidad de unidades/escala, causalidad, validación cruzada, privacidad/ética",
+  },
   { phi: "Ingeniería genética y biotecnología", lambda: "Biología molecular, bioética, límites mutacionales" },
   { phi: "Ciborgs y transhumanismo", lambda: "Ingeniería biomédica, integración hombre-máquina" },
   { phi: "Posible contacto extraterrestre", lambda: "Límites de detección (SETI, paradoja de Fermi)" },
