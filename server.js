@@ -33,10 +33,15 @@ if (fs.existsSync(indexFilePath)) {
   cachedIndexHtml = fs.readFileSync(indexFilePath, 'utf8');
 }
 
+const HTTP_URL_PATTERN = /^https?:\/\//i;
+
 function resolveRuntimeExperimentsDocUrl() {
   const envValue =
     process.env.EXPERIMENTS_DOC_URL ?? process.env.VITE_EXPERIMENTS_DOC_URL ?? '';
   const trimmed = envValue.trim();
+  if (!trimmed || !HTTP_URL_PATTERN.test(trimmed)) {
+    return '';
+  }
   return trimmed;
 }
 

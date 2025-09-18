@@ -73,3 +73,14 @@ runTest("falls back to Vite value when runtime is empty", () => {
 runTest("falls back to default when neither source provides a value", () => {
   expectEqual(getExperimentsDocUrl(), DEFAULT_EXPERIMENTS_DOC_URL);
 });
+
+runTest("ignores relative runtime overrides", () => {
+  setRuntimeUrl("/relative/path.pdf");
+  expectEqual(getExperimentsDocUrl(), DEFAULT_EXPERIMENTS_DOC_URL);
+});
+
+runTest("ignores non-http Vite values", () => {
+  setRuntimeUrl(null);
+  setViteEnv("ftp://example.com/file.pdf");
+  expectEqual(getExperimentsDocUrl(), DEFAULT_EXPERIMENTS_DOC_URL);
+});

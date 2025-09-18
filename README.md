@@ -50,7 +50,7 @@ Si publicas el simulador desde un repositorio distinto, puedes definir la URL qu
 VITE_EXPERIMENTS_DOC_URL="https://github.com/alejandrosolis907/SOLIS-BigBang-Demo/blob/main/docs/axiomas.pdf"
 ```
 
-Al omitir la variable, la aplicación conserva el enlace predeterminado al compendio de axiomas de este repositorio (`docs/axiomas.pdf`).
+Usa siempre direcciones completas que comiencen con `https://` o `http://` (por ejemplo, un PDF alojado en GitHub o Zenodo); cualquier valor relativo o sin protocolo se descartará y el botón volverá al enlace predeterminado al compendio de axiomas de este repositorio (`docs/axiomas.pdf`).
 
 En entornos desplegados con `server.js` (por ejemplo, Railway) también puedes definir la variable de entorno `EXPERIMENTS_DOC_URL` para ajustar la URL en tiempo de ejecución sin reconstruir el bundle. Si ambas (`VITE_EXPERIMENTS_DOC_URL` y `EXPERIMENTS_DOC_URL`) están presentes, el valor en tiempo de ejecución tiene prioridad al renderizar la aplicación.
 

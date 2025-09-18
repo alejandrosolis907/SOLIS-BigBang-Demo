@@ -4,6 +4,7 @@ export const DEFAULT_EXPERIMENTS_DOC_URL =
 type MaybeString = string | null | undefined;
 
 const PLACEHOLDER_PATTERN = /^__BB_EXPERIMENTS_DOC_URL__$/;
+const HTTP_URL_PATTERN = /^https?:\/\//i;
 
 function normalizeCandidate(value: MaybeString): string {
   if (typeof value !== "string") {
@@ -11,6 +12,10 @@ function normalizeCandidate(value: MaybeString): string {
   }
   const trimmed = value.trim();
   if (!trimmed || PLACEHOLDER_PATTERN.test(trimmed)) {
+    return "";
+  }
+
+  if (!HTTP_URL_PATTERN.test(trimmed)) {
     return "";
   }
   return trimmed;
