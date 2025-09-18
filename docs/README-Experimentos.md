@@ -40,9 +40,7 @@ El comando crea reportes en `reports/experimentos-<timestamp>.csv` y `reports/ex
 | Ciencia, arte, tecnología | Límites de energía y recursos disponibles |
 | Computación e inteligencia artificial | Teoría de la información, complejidad computacional |
 | Guerra y cooperación | Psicología, sociología, recursos materiales |
-| Dinámicas de relación social (cooperación, conflicto, difusión) | Psicología social, teoría de juegos, topología de redes, sesgos cognitivos, límites atencionales |
-| Vínculos afectivos y relaciones amorosas | Neurobiología del apego (oxitocina/dopamina), normas culturales, privacidad/consentimiento, sesgos |
-| Neuromarketing interpersonal y fidelización | Economía del comportamiento, límites éticos/legales, fatiga atencional, saturación de estímulos |
+| Mecanismos del comportamiento humano | Psicología social, teoría de juegos, topología de redes, sesgos cognitivos, límites atencionales, neurobiología del apego (oxitocina/dopamina), normas culturales, privacidad/consentimiento, sesgos, juegos de validación, sistemas de intercambio de valor, economía del comportamiento, límites éticos/legales, fatiga atencional, saturación de estímulos |
 | Propulsión sin eyección de masa (reactionless) | Conservación de momento/energía, relatividad especial (→ **no permitido** en sistemas cerrados) |
 | Propulsión con intercambio externo (vela solar/magnética, beam-riding) | Presupuesto de momento/energía del campo externo, límites de potencia/materiales |
 | Predicción de resultados deportivos | Estocasticidad del juego, varianza previa, límites de medición (lesiones, moral), overfitting |
