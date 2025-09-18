@@ -40,13 +40,23 @@ El comando crea reportes en `reports/experimentos-<timestamp>.csv` y `reports/ex
 | Ciencia, arte, tecnología | Límites de energía y recursos disponibles |
 | Computación e inteligencia artificial | Teoría de la información, complejidad computacional |
 | Guerra y cooperación | Psicología, sociología, recursos materiales |
+| Redes sociales emergentes y movimientos sociales | Plataformas digitales, algoritmos de recomendación, regulación |
+| Vínculos afectivos y dinámicas amorosas | Neuroquímica, psicología evolutiva, normas culturales |
+| Campañas de neuromarketing y persuasión | Neuroeconomía, límites de percepción, ética comercial |
+| Propulsión sin masa/externa | Conservación del momento, intercambio de momento con el entorno |
+| Innovación deportiva y récords extremos | Fisiología humana, biomecánica, reglamentos deportivos |
+| Modelado y modificación climática a gran escala | Termodinámica, dinámica atmosférica, acuerdos internacionales |
+| Sistemas de meta-aprendizaje auto-mejorables | Teoría estadística, límites de generalización, coste computacional |
+| Coordinación multidominio (físico–bio–tecnológica) | Compatibilidad entre marcos teóricos, restricciones energéticas |
 | Colonización espacial | Ley de Tsiolkovsky, restricciones energéticas |
 | Ingeniería genética y biotecnología | Biología molecular, bioética, límites mutacionales |
 | Ciborgs y transhumanismo | Ingeniería biomédica, integración hombre-máquina |
 | Posible contacto extraterrestre | Límites de detección (SETI, paradoja de Fermi) |
 | Colonización interestelar | Relatividad especial (velocidad < c), energía finita |
 
-## Interpretación
+_Nota:_ Propulsión sin eyección de masa: no permitida por conservación del momento (caso de prueba negativo).
+
+## Interpretación (Φ, 𝓛, R)
 - **Φ (columna izquierda)** representa el abanico de sucesos posibles en el cosmos, desde procesos cuánticos hasta fenómenos sociales y tecnológicos.
 - **𝓛 (columna derecha)** describe las leyes, constantes y límites que estructuran o restringen esos sucesos, determinando qué potencialidades pueden manifestarse.
 - La realidad **R** surge como la intersección de ambos dominios: cuando un suceso posible cumple las condiciones limitantes, se actualiza como evento concreto.
