@@ -14,6 +14,9 @@ import { ParamsPanel } from "./ui/ParamsPanel";
 import type { EngineAdapterResult } from "./lib/physics/adapters";
 import type { ExperimentHints } from "./lib/bridge";
 
+const DEFAULT_EXPERIMENTS_DOC_URL =
+  "https://github.com/SOLIS-Lab/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md";
+
 declare global {
   interface Window {
     __BB_EXPERIMENT_HINTS__?: ExperimentHints | null;
@@ -310,7 +313,8 @@ export default function App(){
 
   const openExperimentsDoc = () => {
     const experimentsUrl =
-      "https://github.com/SOLIS-Lab/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md";
+      (import.meta.env.VITE_EXPERIMENTS_DOC_URL ?? "").trim() ||
+      DEFAULT_EXPERIMENTS_DOC_URL;
     window.open(experimentsUrl, "_blank", "noopener,noreferrer");
   };
 
