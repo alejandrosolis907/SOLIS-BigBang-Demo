@@ -47,7 +47,7 @@ Para el inventario metaontológico (Φ–𝓛) y la guía conceptual extendida d
 Si publicas el simulador desde un repositorio distinto, puedes definir la URL que abre el botón **"Abrir en GitHub"** del panel de experimentos creando un archivo `.env` en la raíz con:
 
 ```bash
-VITE_EXPERIMENTS_DOC_URL="https://github.com/<usuario>/<repo>/blob/main/docs/README-Experimentos.md"
+VITE_EXPERIMENTS_DOC_URL="https://github.com/alejandrosolis907/neon.r/blob/main/docs/README-Experimentos.md"
 ```
 
 Al omitir la variable, la aplicación conserva el enlace predeterminado a la documentación de este repositorio (`SOLIS-Lab/SOLIS-BigBang-Demo`).
