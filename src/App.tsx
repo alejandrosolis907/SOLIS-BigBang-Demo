@@ -332,8 +332,8 @@ export default function App(){
   }, []);
 
   const experimentsToggleClassName = showExperimentsPanel
-    ? "px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500"
-    : "px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700";
+    ? "px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white shadow"
+    : "px-3 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white shadow";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
@@ -351,7 +351,7 @@ export default function App(){
         paramsOpen={showParamsPanel}
       />
 
-      {(showExperimentsPanel || showMetricsPanel || showParamsPanel) && (
+      {(showMetricsPanel || showParamsPanel) && (
         <div className="space-y-4 mb-4">
           {showParamsPanel && (
             <ParamsPanel
@@ -360,7 +360,6 @@ export default function App(){
             />
           )}
           {showMetricsPanel && <MetricsPanel seed={baseSeed} depth={gridSize} />}
-          {showExperimentsPanel && <ExperimentsPanel onOpenDoc={openAxiomsDoc} />}
         </div>
       )}
 
@@ -426,7 +425,7 @@ export default function App(){
                 />
               ))}
             </div>
-            <div className="mt-6 flex justify-center lg:justify-end">
+            <div className="mt-6 flex justify-end">
               <button
                 className={experimentsToggleClassName}
                 onClick={() => setShowExperimentsPanel((prev) => !prev)}
@@ -437,6 +436,11 @@ export default function App(){
                   : "Mapa Φ ∘ 𝓛(x)"}
               </button>
             </div>
+            {showExperimentsPanel && (
+              <div className="mt-4">
+                <ExperimentsPanel onOpenDoc={openAxiomsDoc} />
+              </div>
+            )}
           </div>
         </main>
       </div>
