@@ -43,8 +43,7 @@ El comando crea reportes en `reports/experimentos-<timestamp>.csv` y `reports/ex
 | Mecanismos del comportamiento humano | Psicología social, teoría de juegos, topología de redes, sesgos cognitivos, límites atencionales, neurobiología del apego (oxitocina/dopamina), normas culturales, privacidad/consentimiento, sesgos, juegos de validación, sistemas de intercambio de valor, economía del comportamiento, límites éticos/legales, fatiga atencional, saturación de estímulos |
 | Propulsión sin eyección de masa (reactionless) | Conservación de momento/energía, relatividad especial (→ **no permitido** en sistemas cerrados) |
 | Propulsión con intercambio externo (vela solar/magnética, beam-riding) | Presupuesto de momento/energía del campo externo, límites de potencia/materiales |
-| Predicción de resultados deportivos | Estocasticidad del juego, varianza previa, límites de medición (lesiones, moral), overfitting |
-| Efecto del clima en el rendimiento deportivo | Termodinámica, dinámica de fluidos, límites fisiológicos, intercambio de calor |
+| Predicción de resultados deportivos | Estocasticidad del juego, varianza previa, límites de medición (lesiones, moral), overfitting, efecto del clima en el rendimiento deportivo (termodinámica, dinámica de fluidos, límites fisiológicos, intercambio de calor) |
 | Mejora de predicción climática via aprendizaje de errores | Caos determinista, límites de observación/resolución, complejidad computacional |
 | IA meta-aprendizaje para reducir efecto mariposa | Teoría de control/estabilidad, regularización, límites de identificabilidad |
 | Integración multidominio de Φ→𝓛 (misma fórmula en ámbitos distintos) | Compatibilidad de unidades/escala, causalidad, validación cruzada, privacidad/ética |
