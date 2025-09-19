@@ -115,10 +115,20 @@ const HINT_KEYS: readonly (keyof EngineSuggestions)[] = [
   "modulation",
 ];
 
+const HINT_LABELS: Record<keyof EngineSuggestions, string> = {
+  noise: "Ruido",
+  damping: "Amortiguación",
+  threshold: "Umbral",
+  kernelPreset: "Núcleo",
+  gain: "Ganancia",
+  resolution: "Resolución",
+  modulation: "Modulación",
+};
+
 const formatHintValue = (value: number | string): string => {
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
-      return "NaN";
+      return "No numérico";
     }
     return Number(value.toPrecision(6)).toString();
   }
@@ -132,7 +142,8 @@ const buildHintStrings = (suggestions: EngineSuggestions): string[] => {
     if (value === null || value === undefined) {
       return;
     }
-    result.push(`${key}=${formatHintValue(value)}`);
+    const label = HINT_LABELS[key] ?? key;
+    result.push(`${label}=${formatHintValue(value)}`);
   });
   return result;
 };
@@ -268,7 +279,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
         <dd className="text-slate-200">{formatConstraintNumber(constraints.max)}</dd>
       </div>
       <div>
-        <dt className="uppercase tracking-wide text-slate-500">Step</dt>
+        <dt className="uppercase tracking-wide text-slate-500">Paso</dt>
         <dd className="text-slate-200">{formatConstraintNumber(constraints.step)}</dd>
       </div>
       <div>
@@ -314,7 +325,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
         </div>
         <div>
           <label htmlFor="phi-preset" className="text-sm font-medium text-slate-200">
-            Preset
+            Preajuste
           </label>
           <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center">
             <select
@@ -325,7 +336,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
               disabled={availablePresets.length === 0}
             >
               {availablePresets.length === 0 ? (
-                <option value="">Sin presets disponibles</option>
+                <option value="">Sin preajustes disponibles</option>
               ) : (
                 availablePresets.map((preset) => (
                   <option key={preset.id} value={preset.id}>
@@ -340,13 +351,13 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
               onClick={handleLoadPreset}
               disabled={!selectedPreset}
             >
-              Cargar preset
+              Cargar preajuste
             </button>
           </div>
           <p className="text-xs text-slate-400 mt-2">
             {selectedPreset
               ? selectedPreset.description
-              : "Selecciona un preset para precargar parámetros sugeridos."}
+              : "Selecciona un preajuste para precargar parámetros sugeridos."}
           </p>
         </div>
       </header>
@@ -448,15 +459,19 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
             </p>
           </header>
           <div className="grid gap-2 sm:grid-cols-2">
-            {Object.entries(lastAppliedResult.suggestions).map(([key, value]) => (
-              <div
-                key={key}
-                className="bg-slate-900/50 border border-slate-800/50 rounded-xl px-3 py-2"
-              >
-                <div className="text-xs uppercase tracking-wide text-slate-500">{key}</div>
-                <div className="text-base text-slate-100">{formatSuggestionValue(value)}</div>
-              </div>
-            ))}
+            {Object.entries(lastAppliedResult.suggestions).map(([key, value]) => {
+              const typedKey = key as keyof EngineSuggestions;
+              const label = HINT_LABELS[typedKey] ?? key;
+              return (
+                <div
+                  key={key}
+                  className="bg-slate-900/50 border border-slate-800/50 rounded-xl px-3 py-2"
+                >
+                  <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+                  <div className="text-base text-slate-100">{formatSuggestionValue(value)}</div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
