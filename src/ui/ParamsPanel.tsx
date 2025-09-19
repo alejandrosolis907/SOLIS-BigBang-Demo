@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  PHYSICS_REGISTRY,
   getRegistryEntry,
   type ConstraintDefinition,
   type PhysicsRegistryEntry,
@@ -64,6 +63,15 @@ const sanitizeInputsFromResult = (entry: PhysicsRegistryEntry, result: Validatio
 };
 
 const PARAMETER_WARNING_REGEX = /Parameter "([^"]+)"/i;
+
+const PANEL_ENTRY_IDS: readonly string[] = [
+  "vacuum",
+  "tunneling",
+  "nuclear",
+  "neutrino",
+  "star-formation",
+  "reactionless-propulsion",
+];
 
 const deriveConstraintCounts = (
   entry: PhysicsRegistryEntry,
@@ -157,7 +165,11 @@ const recordHintMetrics = (result: EngineAdapterResult): void => {
 };
 
 export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPanelProps) {
-  const registryEntries = useMemo(() => Object.values(PHYSICS_REGISTRY), []);
+  const registryEntries = useMemo<PhysicsRegistryEntry[]>(() => {
+    return PANEL_ENTRY_IDS.map((entryId) => getRegistryEntry(entryId)).filter(
+      (entry): entry is PhysicsRegistryEntry => entry != null,
+    );
+  }, []);
   const [selectedEntryId, setSelectedEntryId] = useState(() => registryEntries[0]?.id ?? "");
   const selectedEntry = useMemo(() => {
     if (!selectedEntryId) {
