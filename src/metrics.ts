@@ -35,9 +35,42 @@ export type ConstraintSatisfactionSnapshot = {
   constraintsFailed: number | null;
 };
 
+export type ConstraintSatisfactionMetrics = {
+  entryId: string | "N/D";
+  constraintsOk: number | "N/D";
+  constraintsFailed: number | "N/D";
+};
+
 export type HintsAppliedSnapshot = {
   entryId: string | null;
   hints: string[] | null;
+};
+
+export type HintsAppliedMetrics = {
+  entryId: string | "N/D";
+  hints: readonly string[] | "N/D";
+};
+
+export type MetaLearnerSnapshot = {
+  entryId: string | null;
+  domain: string | null;
+  maeBefore: number | null;
+  maeAfter: number | null;
+  mapeBefore: number | null;
+  mapeAfter: number | null;
+  improvement: number | null;
+  constraintsOk: boolean | null;
+};
+
+export type MetaLearnerMetrics = {
+  entryId: string | "N/D";
+  domain: string | "N/D";
+  maeBefore: number | "N/D";
+  maeAfter: number | "N/D";
+  mapeBefore: number | "N/D";
+  mapeAfter: number | "N/D";
+  improvement: number | "N/D";
+  constraintsOk: "N/D" | boolean;
 };
 
 type MetricsState = {
@@ -46,6 +79,7 @@ type MetricsState = {
   boundaryMode: boolean | null;
   constraintSatisfaction: ConstraintSatisfactionSnapshot;
   hintsApplied: HintsAppliedSnapshot;
+  metaLearner: MetaLearnerSnapshot;
 };
 
 const createConstraintSnapshot = (): ConstraintSatisfactionSnapshot => ({
@@ -59,12 +93,24 @@ const createHintsSnapshot = (): HintsAppliedSnapshot => ({
   hints: null,
 });
 
+const createMetaSnapshot = (): MetaLearnerSnapshot => ({
+  entryId: null,
+  domain: null,
+  maeBefore: null,
+  maeAfter: null,
+  mapeBefore: null,
+  mapeAfter: null,
+  improvement: null,
+  constraintsOk: null,
+});
+
 let metricsState: MetricsState = {
   r2Perimeter: null,
   r2Area: null,
   boundaryMode: null,
   constraintSatisfaction: createConstraintSnapshot(),
   hintsApplied: createHintsSnapshot(),
+  metaLearner: createMetaSnapshot(),
 };
 
 const metricsListeners = new Set<() => void>();
@@ -104,6 +150,13 @@ const setMetricsState = (partial: Partial<MetricsState>) => {
     "hintsApplied" in partial &&
     partial.hintsApplied !== undefined &&
     partial.hintsApplied !== metricsState.hintsApplied
+  ) {
+    changed = true;
+  }
+  if (
+    "metaLearner" in partial &&
+    partial.metaLearner !== undefined &&
+    partial.metaLearner !== metricsState.metaLearner
   ) {
     changed = true;
   }
@@ -153,15 +206,73 @@ export const updateHintsApplied = (snapshot: HintsAppliedSnapshot | null): void 
   setMetricsState({ hintsApplied: normalized });
 };
 
-export const getConstraintSatisfaction = (): ConstraintSatisfactionSnapshot => ({
-  ...metricsState.constraintSatisfaction,
+type MetaLearnerUpdate = {
+  entryId: string | null;
+  domain: string | null;
+  maeBefore: number | null;
+  maeAfter: number | null;
+  mapeBefore: number | null;
+  mapeAfter: number | null;
+  improvement: number | null;
+  constraintsOk: boolean | null;
+};
+
+const cloneMetaSnapshot = (snapshot: MetaLearnerUpdate): MetaLearnerSnapshot => ({
+  entryId: snapshot.entryId ?? null,
+  domain: snapshot.domain ?? null,
+  maeBefore: typeof snapshot.maeBefore === "number" && Number.isFinite(snapshot.maeBefore)
+    ? snapshot.maeBefore
+    : null,
+  maeAfter: typeof snapshot.maeAfter === "number" && Number.isFinite(snapshot.maeAfter)
+    ? snapshot.maeAfter
+    : null,
+  mapeBefore: typeof snapshot.mapeBefore === "number" && Number.isFinite(snapshot.mapeBefore)
+    ? snapshot.mapeBefore
+    : null,
+  mapeAfter: typeof snapshot.mapeAfter === "number" && Number.isFinite(snapshot.mapeAfter)
+    ? snapshot.mapeAfter
+    : null,
+  improvement: typeof snapshot.improvement === "number" && Number.isFinite(snapshot.improvement)
+    ? snapshot.improvement
+    : null,
+  constraintsOk:
+    typeof snapshot.constraintsOk === "boolean" ? snapshot.constraintsOk : null,
 });
 
-export const getHintsApplied = (): HintsAppliedSnapshot => {
+export const updateMetaLearnerMetrics = (snapshot: MetaLearnerUpdate | null): void => {
+  const normalized = snapshot ? cloneMetaSnapshot(snapshot) : createMetaSnapshot();
+  setMetricsState({ metaLearner: normalized });
+};
+
+export const getConstraintSatisfaction = (): ConstraintSatisfactionMetrics => {
+  const { entryId, constraintsOk, constraintsFailed } = metricsState.constraintSatisfaction;
+  return {
+    entryId: entryId ?? "N/D",
+    constraintsOk: constraintsOk ?? "N/D",
+    constraintsFailed: constraintsFailed ?? "N/D",
+  };
+};
+
+export const getHintsApplied = (): HintsAppliedMetrics => {
   const { entryId, hints } = metricsState.hintsApplied;
   return {
-    entryId,
-    hints: hints ? [...hints] : hints,
+    entryId: entryId ?? "N/D",
+    hints: hints ? [...hints] : "N/D",
+  };
+};
+
+export const getMetaLearnerMetrics = (): MetaLearnerMetrics => {
+  const snapshot = metricsState.metaLearner;
+  return {
+    entryId: snapshot.entryId ?? "N/D",
+    domain: snapshot.domain ?? "N/D",
+    maeBefore: snapshot.maeBefore ?? "N/D",
+    maeAfter: snapshot.maeAfter ?? "N/D",
+    mapeBefore: snapshot.mapeBefore ?? "N/D",
+    mapeAfter: snapshot.mapeAfter ?? "N/D",
+    improvement: snapshot.improvement ?? "N/D",
+    constraintsOk:
+      typeof snapshot.constraintsOk === "boolean" ? snapshot.constraintsOk : "N/D",
   };
 };
 

@@ -13,7 +13,7 @@ import { MetricsPanel } from "./ui/MetricsPanel";
 import { ParamsPanel } from "./ui/ParamsPanel";
 import type { EngineAdapterResult } from "./lib/physics/adapters";
 import type { ExperimentHints } from "./lib/bridge";
-import { getExperimentsDocUrl } from "./config";
+import { getAxiomsDocUrl, getExperimentsDocUrl } from "./config";
 
 declare global {
   interface Window {
@@ -21,6 +21,9 @@ declare global {
     __BB_RUNTIME_CONFIG__?: {
       experimentsDocUrl?: string | null;
     };
+    __BB_EXPERIMENT_CONTEXT__?: {
+      entryId?: string | null;
+    } | null;
   }
 }
 
@@ -259,6 +262,7 @@ export default function App(){
     }
     if (!appliedEngineSuggestions) {
       window.__BB_EXPERIMENT_HINTS__ = null;
+      window.__BB_EXPERIMENT_CONTEXT__ = null;
       return;
     }
     const { suggestions } = appliedEngineSuggestions;
@@ -267,15 +271,20 @@ export default function App(){
     const hints: ExperimentHints = {
       noise: normalizeNumeric(suggestions.noise),
       damping: normalizeNumeric(suggestions.damping),
-      kernel: suggestions.kernel ?? null,
+      threshold: normalizeNumeric(suggestions.threshold),
+      kernelPreset: suggestions.kernelPreset ?? null,
     };
     window.__BB_EXPERIMENT_HINTS__ = hints;
+    window.__BB_EXPERIMENT_CONTEXT__ = {
+      entryId: appliedEngineSuggestions.entryId,
+    };
   }, [appliedEngineSuggestions]);
 
   useEffect(() => {
     return () => {
       if (typeof window !== "undefined") {
         window.__BB_EXPERIMENT_HINTS__ = null;
+        window.__BB_EXPERIMENT_CONTEXT__ = null;
       }
     };
   }, []);
@@ -312,10 +321,19 @@ export default function App(){
     URL.revokeObjectURL(url);
   };
 
-  const openExperimentsDoc = () => {
+  const openExperimentsDoc = React.useCallback(() => {
     const experimentsUrl = getExperimentsDocUrl();
     window.open(experimentsUrl, "_blank", "noopener,noreferrer");
-  };
+  }, []);
+
+  const openAxiomsDoc = React.useCallback(() => {
+    const axiomsUrl = getAxiomsDocUrl();
+    window.open(axiomsUrl, "_blank", "noopener,noreferrer");
+  }, []);
+
+  const experimentsToggleClassName = showExperimentsPanel
+    ? "px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white shadow"
+    : "px-3 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white shadow";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
@@ -326,15 +344,14 @@ export default function App(){
         onResetHard={resetAllHard}
         onExportCsv={exportExcel}
         onExportCapture={() => exportGridPng("grid")}
-        onToggleExperiments={() => setShowExperimentsPanel((prev) => !prev)}
+        onOpenExperimentsDoc={openExperimentsDoc}
         onToggleMetrics={() => setShowMetricsPanel((prev) => !prev)}
         onToggleParams={() => setShowParamsPanel((prev) => !prev)}
-        experimentsOpen={showExperimentsPanel}
         metricsOpen={showMetricsPanel}
         paramsOpen={showParamsPanel}
       />
 
-      {(showExperimentsPanel || showMetricsPanel || showParamsPanel) && (
+      {(showMetricsPanel || showParamsPanel) && (
         <div className="space-y-4 mb-4">
           {showParamsPanel && (
             <ParamsPanel
@@ -343,7 +360,6 @@ export default function App(){
             />
           )}
           {showMetricsPanel && <MetricsPanel seed={baseSeed} depth={gridSize} />}
-          {showExperimentsPanel && <ExperimentsPanel onOpenDoc={openExperimentsDoc} />}
         </div>
       )}
 
@@ -409,6 +425,22 @@ export default function App(){
                 />
               ))}
             </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                className={experimentsToggleClassName}
+                onClick={() => setShowExperimentsPanel((prev) => !prev)}
+                type="button"
+              >
+                {showExperimentsPanel
+                  ? "Cerrar mapa Φ ∘ 𝓛(x)"
+                  : "Mapa Φ ∘ 𝓛(x)"}
+              </button>
+            </div>
+            {showExperimentsPanel && (
+              <div className="mt-4">
+                <ExperimentsPanel onOpenDoc={openAxiomsDoc} />
+              </div>
+            )}
           </div>
         </main>
       </div>

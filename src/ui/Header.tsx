@@ -7,10 +7,9 @@ type HeaderProps = {
   onResetHard: () => void;
   onExportCsv: () => void;
   onExportCapture: () => void;
-  onToggleExperiments: () => void;
+  onOpenExperimentsDoc: () => void;
   onToggleMetrics: () => void;
   onToggleParams: () => void;
-  experimentsOpen: boolean;
   metricsOpen: boolean;
   paramsOpen: boolean;
 };
@@ -22,10 +21,9 @@ export function Header({
   onResetHard,
   onExportCsv,
   onExportCapture,
-  onToggleExperiments,
+  onOpenExperimentsDoc,
   onToggleMetrics,
   onToggleParams,
-  experimentsOpen,
   metricsOpen,
   paramsOpen,
 }: HeaderProps) {
@@ -56,6 +54,9 @@ export function Header({
         <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={onExportCapture}>
           Exportar captura
         </button>
+        <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={onOpenExperimentsDoc}>
+          Experimentos
+        </button>
         <button
           className={toggleButtonClassName(metricsOpen)}
           onClick={onToggleMetrics}
@@ -71,14 +72,6 @@ export function Header({
           type="button"
         >
           {paramsOpen ? "Cerrar Φ–𝓛" : "Panel Φ–𝓛"}
-        </button>
-        <button
-          className={toggleButtonClassName(experimentsOpen)}
-          onClick={onToggleExperiments}
-          aria-pressed={experimentsOpen}
-          type="button"
-        >
-          {experimentsOpen ? "Cerrar mapa Φ ∘ 𝓛(x)" : "Mapa Φ ∘ 𝓛(x)"}
         </button>
       </div>
     </header>
