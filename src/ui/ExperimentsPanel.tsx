@@ -116,7 +116,7 @@ export function ExperimentsPanel({ onOpenDoc }: ExperimentsPanelProps) {
 
       <div className="flex justify-end">
         <button
-          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm"
+          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm"
           onClick={onOpenDoc}
           type="button"
         >
