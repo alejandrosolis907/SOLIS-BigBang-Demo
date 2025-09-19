@@ -164,87 +164,71 @@ export const PHYSICS_REGISTRY: Record<string, PhysicsRegistryEntry> = {
       },
     },
   },
-  'social-dynamics': {
-    id: 'social-dynamics',
-    name: 'Social Cooperation Dynamics',
+  'human-behavior-mechanisms': {
+    id: 'human-behavior-mechanisms',
+    name: 'Mecanismos del comportamiento humano',
     description:
-      'Models attention-limited cooperation and diffusion phenomena in social networks.',
+      'Integra cooperación social, vínculos afectivos y estímulos neuromarketing bajo límites atencionales y éticos.',
     inputs: {
       cooperationBias: {
         label: 'Cooperation Bias',
-        description: 'Baseline inclination towards cooperation over conflict.',
+        description: 'Inclinación basal hacia cooperación frente a conflicto.',
         unit: 'probability',
         default: 0.55,
         constraints: { min: 0, max: 1, step: 0.01 },
       },
       networkDensity: {
         label: 'Network Density',
-        description: 'Normalized connectivity/topology factor of the social graph.',
+        description: 'Factor normalizado de conectividad/topología social.',
         unit: 'dimensionless',
         default: 0.35,
         constraints: { min: 0, max: 1, step: 0.01 },
       },
       cognitiveLoad: {
         label: 'Cognitive Load',
-        description: 'Attention saturation impacting diffusion of cooperation.',
+        description: 'Saturación atencional que limita la difusión.',
         unit: 'fraction',
         default: 0.4,
         constraints: { min: 0, max: 1, step: 0.01 },
       },
-    },
-  },
-  'affective-bonds': {
-    id: 'affective-bonds',
-    name: 'Affective Bonds & Consent',
-    description:
-      'Captures neurobiological attachment factors balanced with privacy/consent limits.',
-    inputs: {
       oxytocinLevel: {
         label: 'Oxytocin Level',
-        description: 'Relative oxytocin response associated with bonding.',
+        description: 'Respuesta neurobiológica asociada al apego.',
         unit: 'pmol/L',
         default: 85,
         constraints: { min: 0, max: 200 },
       },
       trustIndex: {
         label: 'Trust Index',
-        description: 'Self-reported trust or commitment level.',
+        description: 'Nivel de confianza/compromiso percibido.',
         unit: 'probability',
         default: 0.65,
         constraints: { min: 0, max: 1, step: 0.01 },
       },
       privacyRisk: {
         label: 'Privacy Risk',
-        description: 'Perceived privacy or consent boundary pressure.',
+        description: 'Presión sobre límites de privacidad y consentimiento.',
         unit: 'fraction',
         default: 0.25,
         constraints: { min: 0, max: 1, step: 0.01 },
       },
-    },
-  },
-  neuromarketing: {
-    id: 'neuromarketing',
-    name: 'Interpersonal Neuromarketing',
-    description:
-      'Explores interpersonal marketing stimuli with ethical fatigue safeguards.',
-    inputs: {
       stimulusFrequency: {
         label: 'Stimulus Frequency',
-        description: 'Presentation cadence of persuasive stimuli.',
+        description: 'Cadencia de presentación de estímulos persuasivos.',
         unit: 'Hz',
         default: 2,
         constraints: { min: 0, max: 10, step: 0.1 },
       },
       sessionDuration: {
         label: 'Session Duration',
-        description: 'Length of the neuromarketing interaction.',
+        description: 'Duración de la interacción o campaña.',
         unit: 'minutes',
         default: 35,
         constraints: { min: 5, max: 180, step: 1 },
       },
       ethicalCompliance: {
         label: 'Ethical Compliance',
-        description: 'Compliance score with ethical/legal guidelines.',
+        description: 'Cumplimiento con lineamientos éticos y legales.',
         unit: 'fraction',
         default: 0.6,
         constraints: { min: 0, max: 1, step: 0.01 },

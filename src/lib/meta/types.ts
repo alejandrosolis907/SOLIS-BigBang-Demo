@@ -1,7 +1,5 @@
 export type MetaLearnerDomainId =
-  | "social"
-  | "affective"
-  | "neuromarketing"
+  | "human-behavior"
   | "reactionless"
   | "external-propulsion"
   | "sports"

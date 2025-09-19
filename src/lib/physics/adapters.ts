@@ -173,84 +173,111 @@ export const toEngine = (
       suggestions.kernelPreset = 'adaptive';
       break;
     }
-    case 'social-dynamics': {
+    case 'human-behavior-mechanisms': {
       const cooperationBias = validation.params.cooperationBias;
       const networkDensity = validation.params.networkDensity;
       const cognitiveLoad = validation.params.cognitiveLoad;
-
-      if (hasFiniteValue(cognitiveLoad)) {
-        suggestions.noise = Number((cognitiveLoad * 0.8).toPrecision(6));
-      }
-
-      if (hasFiniteValue(cooperationBias)) {
-        suggestions.damping = Number((1 - cooperationBias * 0.7).toPrecision(6));
-        suggestions.gain = Number((cooperationBias * 0.5).toPrecision(6));
-      }
-
-      if (hasFiniteValue(networkDensity)) {
-        const normalized = Math.min(1, Math.max(0, networkDensity * 0.8 + 0.1));
-        suggestions.threshold = Number(normalized.toPrecision(6));
-      }
-
-      if (hasFiniteValue(cooperationBias) && hasFiniteValue(networkDensity)) {
-        suggestions.modulation = Number(
-          ((cooperationBias - 0.5) * networkDensity).toPrecision(6),
-        );
-      }
-
-      suggestions.kernelPreset = 'adaptive';
-      break;
-    }
-    case 'affective-bonds': {
       const oxytocinLevel = validation.params.oxytocinLevel;
       const trustIndex = validation.params.trustIndex;
       const privacyRisk = validation.params.privacyRisk;
-
-      if (hasFiniteValue(oxytocinLevel)) {
-        suggestions.noise = Number((1 / (1 + oxytocinLevel / 120)).toPrecision(6));
-      }
-
-      if (hasFiniteValue(trustIndex)) {
-        suggestions.threshold = Number((trustIndex * 0.8).toPrecision(6));
-        suggestions.gain = Number((trustIndex * 0.9).toPrecision(6));
-      }
-
-      if (hasFiniteValue(privacyRisk)) {
-        suggestions.damping = Number((1 - privacyRisk * 0.6).toPrecision(6));
-      }
-
-      if (hasFiniteValue(trustIndex) && hasFiniteValue(privacyRisk)) {
-        suggestions.modulation = Number(
-          ((trustIndex - privacyRisk) * 0.5).toPrecision(6),
-        );
-      }
-
-      suggestions.kernelPreset = 'gaussian';
-      break;
-    }
-    case 'neuromarketing': {
       const stimulusFrequency = validation.params.stimulusFrequency;
       const sessionDuration = validation.params.sessionDuration;
       const ethicalCompliance = validation.params.ethicalCompliance;
 
+      const average = (values: number[]): number | null => {
+        if (values.length === 0) {
+          return null;
+        }
+        const sum = values.reduce((acc, value) => acc + value, 0);
+        return sum / values.length;
+      };
+
+      const clamp01 = (value: number): number => {
+        if (value <= 0) return 0;
+        if (value >= 1) return 1;
+        return value;
+      };
+
+      const noiseCandidates: number[] = [];
+      if (hasFiniteValue(cognitiveLoad)) {
+        noiseCandidates.push(Math.max(0, Math.min(1, cognitiveLoad * 0.8)));
+      }
+      if (hasFiniteValue(oxytocinLevel)) {
+        noiseCandidates.push(Math.max(0, Math.min(1, 1 / (1 + oxytocinLevel / 120))));
+      }
       if (hasFiniteValue(stimulusFrequency)) {
-        suggestions.noise = Number((Math.min(1, stimulusFrequency / 10)).toPrecision(6));
-        suggestions.modulation = Number(
-          (stimulusFrequency * 0.15).toPrecision(6),
-        );
+        noiseCandidates.push(Math.max(0, Math.min(1, stimulusFrequency / 10)));
+      }
+      const noise = average(noiseCandidates);
+      if (noise !== null) {
+        suggestions.noise = Number(noise.toPrecision(6));
+      }
+
+      const dampingCandidates: number[] = [];
+      if (hasFiniteValue(cooperationBias)) {
+        dampingCandidates.push(clamp01(1 - cooperationBias * 0.7));
+      }
+      if (hasFiniteValue(privacyRisk)) {
+        dampingCandidates.push(clamp01(1 - privacyRisk * 0.6));
+      }
+      if (hasFiniteValue(ethicalCompliance)) {
+        dampingCandidates.push(clamp01(1 - ethicalCompliance * 0.4));
+      }
+      const damping = average(dampingCandidates);
+      if (damping !== null) {
+        suggestions.damping = Number(damping.toPrecision(6));
+      }
+
+      const thresholdCandidates: number[] = [];
+      if (hasFiniteValue(networkDensity)) {
+        thresholdCandidates.push(Math.min(1, Math.max(0, networkDensity * 0.8 + 0.1)));
+      }
+      if (hasFiniteValue(trustIndex)) {
+        thresholdCandidates.push(Math.min(1, Math.max(0, trustIndex * 0.8)));
+      }
+      if (hasFiniteValue(ethicalCompliance)) {
+        thresholdCandidates.push(Math.min(1, Math.max(0.1, ethicalCompliance)));
+      }
+      const threshold = average(thresholdCandidates);
+      if (threshold !== null) {
+        suggestions.threshold = Number(threshold.toPrecision(6));
+      }
+
+      const gainCandidates: number[] = [];
+      if (hasFiniteValue(cooperationBias)) {
+        gainCandidates.push(clamp01(cooperationBias * 0.5));
+      }
+      if (hasFiniteValue(trustIndex)) {
+        gainCandidates.push(clamp01(trustIndex * 0.9));
+      }
+      if (hasFiniteValue(ethicalCompliance)) {
+        gainCandidates.push(clamp01(ethicalCompliance * 0.8));
+      }
+      const gain = average(gainCandidates);
+      if (gain !== null) {
+        suggestions.gain = Number(gain.toPrecision(6));
+      }
+
+      const modulationCandidates: number[] = [];
+      if (hasFiniteValue(cooperationBias) && hasFiniteValue(networkDensity)) {
+        modulationCandidates.push((cooperationBias - 0.5) * networkDensity);
+      }
+      if (hasFiniteValue(trustIndex) && hasFiniteValue(privacyRisk)) {
+        modulationCandidates.push((trustIndex - privacyRisk) * 0.5);
+      }
+      if (hasFiniteValue(stimulusFrequency)) {
+        modulationCandidates.push(stimulusFrequency * 0.15);
+      }
+      const modulation = average(modulationCandidates);
+      if (modulation !== null) {
+        suggestions.modulation = Number(modulation.toPrecision(6));
       }
 
       if (hasFiniteValue(sessionDuration)) {
         suggestions.resolution = Number((sessionDuration / 60).toPrecision(6));
       }
 
-      if (hasFiniteValue(ethicalCompliance)) {
-        suggestions.damping = Number((1 - ethicalCompliance * 0.4).toPrecision(6));
-        suggestions.gain = Number((ethicalCompliance * 0.8).toPrecision(6));
-        suggestions.threshold = Number((Math.max(0.1, ethicalCompliance)).toPrecision(6));
-      }
-
-      suggestions.kernelPreset = 'exponential';
+      suggestions.kernelPreset = 'adaptive';
       break;
     }
     case 'reactionless-propulsion': {

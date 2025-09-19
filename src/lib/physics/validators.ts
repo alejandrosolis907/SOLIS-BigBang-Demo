@@ -119,13 +119,9 @@ const applyEntrySpecificConstraints = (
     case 'star-formation':
       enforceJeansLimit(entry, sanitized, warnings);
       break;
-    case 'social-dynamics':
+    case 'human-behavior-mechanisms':
       enforceSocialDynamicsConstraints(entry, sanitized, warnings);
-      break;
-    case 'affective-bonds':
       enforceAffectiveBondConstraints(entry, sanitized, warnings);
-      break;
-    case 'neuromarketing':
       enforceNeuromarketingLimits(entry, sanitized, warnings);
       break;
     case 'reactionless-propulsion':
