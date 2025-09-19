@@ -331,6 +331,10 @@ export default function App(){
     window.open(axiomsUrl, "_blank", "noopener,noreferrer");
   }, []);
 
+  const experimentsToggleClassName = showExperimentsPanel
+    ? "px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500"
+    : "px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700";
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
       <Header
@@ -341,10 +345,8 @@ export default function App(){
         onExportCsv={exportExcel}
         onExportCapture={() => exportGridPng("grid")}
         onOpenExperimentsDoc={openExperimentsDoc}
-        onToggleExperiments={() => setShowExperimentsPanel((prev) => !prev)}
         onToggleMetrics={() => setShowMetricsPanel((prev) => !prev)}
         onToggleParams={() => setShowParamsPanel((prev) => !prev)}
-        experimentsOpen={showExperimentsPanel}
         metricsOpen={showMetricsPanel}
         paramsOpen={showParamsPanel}
       />
@@ -423,6 +425,17 @@ export default function App(){
                   resetSignal={resetSignals[i]}
                 />
               ))}
+            </div>
+            <div className="mt-6 flex justify-center lg:justify-end">
+              <button
+                className={experimentsToggleClassName}
+                onClick={() => setShowExperimentsPanel((prev) => !prev)}
+                type="button"
+              >
+                {showExperimentsPanel
+                  ? "Cerrar mapa Φ ∘ 𝓛(x)"
+                  : "Mapa Φ ∘ 𝓛(x)"}
+              </button>
             </div>
           </div>
         </main>

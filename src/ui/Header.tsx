@@ -8,10 +8,8 @@ type HeaderProps = {
   onExportCsv: () => void;
   onExportCapture: () => void;
   onOpenExperimentsDoc: () => void;
-  onToggleExperiments: () => void;
   onToggleMetrics: () => void;
   onToggleParams: () => void;
-  experimentsOpen: boolean;
   metricsOpen: boolean;
   paramsOpen: boolean;
 };
@@ -24,10 +22,8 @@ export function Header({
   onExportCsv,
   onExportCapture,
   onOpenExperimentsDoc,
-  onToggleExperiments,
   onToggleMetrics,
   onToggleParams,
-  experimentsOpen,
   metricsOpen,
   paramsOpen,
 }: HeaderProps) {
@@ -76,14 +72,6 @@ export function Header({
           type="button"
         >
           {paramsOpen ? "Cerrar Φ–𝓛" : "Panel Φ–𝓛"}
-        </button>
-        <button
-          className={toggleButtonClassName(experimentsOpen)}
-          onClick={onToggleExperiments}
-          aria-pressed={experimentsOpen}
-          type="button"
-        >
-          {experimentsOpen ? "Cerrar mapa Φ ∘ 𝓛(x)" : "Mapa Φ ∘ 𝓛(x)"}
         </button>
       </div>
     </header>
