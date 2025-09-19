@@ -1,3 +1,10 @@
+import { computeAreaLaw } from "./metrics.ts";
+import {
+  captureSample,
+  trainDecoder,
+  evaluateReconstruction,
+} from "./reconstruction.ts";
+
 // BigBang_PLUS engine — maps UI concepts to SOLIS axioms
 // Ω: not modeled
 // Φ: stochastic potential field derived from seed
@@ -59,6 +66,19 @@ function applyKernel(phi, grid, kernel){
   return out;
 }
 
+const DEFAULT_DEPTH_DECAY = 0.85;
+const HAMMING_ALPHA = 0.54;
+const HAMMING_BETA = 0.46;
+const HAMMING_WINDOW = 64;
+const AREA_FEEDBACK_PERIOD = 16;
+const AREA_RATIO_THRESHOLD = 0.045;
+const AREA_RATIO_HYSTERESIS = 0.005;
+const AREA_GAIN_STEP = 0.03;
+const AREA_GAIN_MIN = 0.6;
+const AREA_GAIN_MAX = 1.4;
+const AREA_RELAX_RATE = 0.08;
+const AREA_BOUNDARY_MARGIN = 1;
+
 export const SMOOTH_KERNEL = [
   0.07, 0.12, 0.07,
   0.12, 0.26, 0.12,
@@ -69,6 +89,345 @@ export const RIGID_KERNEL = [
   -1, 4, -1,
   0, -1,  0
 ];
+
+function clamp01(v){
+  if (v < 0) return 0;
+  if (v > 1) return 1;
+  return v;
+}
+
+function blendKernel(mix=0){
+  const m = clamp01(mix);
+  return SMOOTH_KERNEL.map((s, i) => s * (1 - m) + RIGID_KERNEL[i] * m);
+}
+
+function fract(x){
+  return x - Math.floor(x);
+}
+
+function deterministicNoise(x, y, value){
+  // Deterministic pseudo-noise that only depends on the boundary value and coordinates.
+  const basis = value * 977.13 + (x + 1) * 12.9898 + (y + 1) * 78.233;
+  return fract(Math.sin(basis) * 43758.5453);
+}
+
+function ensureDepthWeights(state){
+  const { grid } = state;
+  if (!grid) return null;
+  const total = grid * grid;
+  const boundaryDepth = Math.max(0, Math.floor(state.boundaryDepth ?? grid));
+  const decayRaw = typeof state.depthDecay === "number" ? state.depthDecay : DEFAULT_DEPTH_DECAY;
+  const decay = clamp01(decayRaw);
+  if (
+    !state._depthWeights ||
+    state._depthWeights.length !== total ||
+    state._depthWeightsDecay !== decay ||
+    state._depthWeightsDepth !== boundaryDepth
+  ) {
+    const weights = new Float32Array(total);
+    for (let y = 0; y < grid; y++) {
+      for (let x = 0; x < grid; x++) {
+        const idx = y * grid + x;
+        const depthFromEdge = Math.min(x, y, grid - 1 - x, grid - 1 - y);
+        const effectiveDepth = Math.min(boundaryDepth, depthFromEdge);
+        let weight;
+        if (effectiveDepth <= 0) {
+          weight = 1;
+        } else if (decay === 0) {
+          weight = 0;
+        } else {
+          weight = Math.pow(decay, effectiveDepth);
+        }
+        weights[idx] = Math.max(1e-3, weight);
+      }
+    }
+    state._depthWeights = weights;
+    state._depthWeightsDecay = decay;
+    state._depthWeightsDepth = boundaryDepth;
+  }
+  return state._depthWeights;
+}
+
+function ensureBoundaryWeights(state) {
+  if (!state.boundaryWeights) {
+    state.boundaryWeights = {
+      top: 1,
+      bottom: 1,
+      left: 1,
+      right: 1,
+    };
+  }
+  return state.boundaryWeights;
+}
+
+function weightedCosine01(a, b, weights){
+  const n = Math.max(a.length, b.length, weights ? weights.length : 0);
+  if (n === 0) return 0;
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < n; i++) {
+    const ai = a[i] ?? a[a.length - 1] ?? 0;
+    const bi = b[i] ?? b[b.length - 1] ?? 0;
+    const w = weights ? (weights[i] ?? weights[weights.length - 1] ?? 1) : 1;
+    if (w <= 0) continue;
+    dot += w * ai * bi;
+    na += w * ai * ai;
+    nb += w * bi * bi;
+  }
+  if (na <= 1e-12 || nb <= 1e-12) return 0;
+  const cos = dot / Math.sqrt(na * nb);
+  const clamped = Math.max(-1, Math.min(1, cos));
+  return (clamped + 1) / 2;
+}
+
+function propagateBoundaryLattice(state){
+  const { grid } = state;
+  const total = grid * grid;
+  if (!state.lattice || state.lattice.length !== total) {
+    state.lattice = new Float32Array(total);
+  }
+  const lattice = state.lattice;
+  lattice.fill(0);
+  const boundaryWeights = ensureBoundaryWeights(state);
+  if (!state._holoVisited || state._holoVisited.length !== total) {
+    state._holoVisited = new Uint8Array(total);
+  } else {
+    state._holoVisited.fill(0);
+  }
+  const visited = state._holoVisited;
+  const queue = [];
+  const idx = (x, y) => y * grid + x;
+  const depthLimit = Math.max(0, Math.floor(state.boundaryDepth ?? grid));
+  const boundaryNoise = state.boundaryNoise ?? 0;
+  const kernel = blendKernel(state.boundaryKernelMix ?? 0);
+
+  let boundarySum = 0;
+  let boundaryCount = 0;
+
+  for (let y = 0; y < grid; y++) {
+    for (let x = 0; x < grid; x++) {
+      if (x === 0 || y === 0 || x === grid - 1 || y === grid - 1) {
+        const id = idx(x, y);
+        const phiVal = clamp01(state.phi[id]);
+        const noise = boundaryNoise ? boundaryNoise * (deterministicNoise(x, y, phiVal) - 0.5) : 0;
+        let gain = 1;
+        if (x === 0) gain *= boundaryWeights.left;
+        if (x === grid - 1) gain *= boundaryWeights.right;
+        if (y === 0) gain *= boundaryWeights.top;
+        if (y === grid - 1) gain *= boundaryWeights.bottom;
+        const value = clamp01((phiVal + noise) * gain);
+        lattice[id] = value;
+        visited[id] = 1;
+        queue.push({ x, y, depth: 0 });
+        boundarySum += value;
+        boundaryCount++;
+      }
+    }
+  }
+
+  const boundaryAvg = boundaryCount ? boundarySum / boundaryCount : 0;
+  const neighbours = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [-1, 1],
+    [1, -1],
+    [-1, -1],
+  ];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current) break;
+    const { x, y, depth } = current;
+    if (depth >= depthLimit) continue;
+    for (const [dx, dy] of neighbours) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= grid || ny < 0 || ny >= grid) continue;
+      const nid = idx(nx, ny);
+      if (visited[nid]) continue;
+      let acc = 0;
+      let weight = 0;
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const px = nx + kx;
+          const py = ny + ky;
+          if (px < 0 || px >= grid || py < 0 || py >= grid) continue;
+          const pid = idx(px, py);
+          if (!visited[pid]) continue;
+          const w = kernel[(ky + 1) * 3 + (kx + 1)];
+          if (w === 0) continue;
+          acc += lattice[pid] * w;
+          weight += Math.abs(w);
+        }
+      }
+      const source = lattice[idx(x, y)];
+      const value = weight > 0 ? clamp01(acc / weight) : source;
+      lattice[nid] = value;
+      visited[nid] = 1;
+      queue.push({ x: nx, y: ny, depth: depth + 1 });
+    }
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let y = 0; y < grid; y++) {
+      for (let x = 0; x < grid; x++) {
+        const id = idx(x, y);
+        if (visited[id]) continue;
+        let acc = 0;
+        let weight = 0;
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const px = x + kx;
+            const py = y + ky;
+            if (px < 0 || px >= grid || py < 0 || py >= grid) continue;
+            const pid = idx(px, py);
+            if (!visited[pid]) continue;
+            const w = kernel[(ky + 1) * 3 + (kx + 1)];
+            if (w === 0) continue;
+            acc += lattice[pid] * w;
+            weight += Math.abs(w);
+          }
+        }
+        if (weight > 0) {
+          lattice[id] = clamp01(acc / weight);
+          visited[id] = 1;
+          changed = true;
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < lattice.length; i++) {
+    if (!visited[i]) {
+      lattice[i] = boundaryAvg;
+    }
+  }
+
+  let sum = 0;
+  for (let i = 0; i < lattice.length; i++) sum += lattice[i];
+  state.holographicBulk = lattice.length ? sum / lattice.length : 0;
+
+  return lattice;
+}
+
+function applyAreaLawFeedback(state) {
+  if (!state.holographicMode) return;
+  const metrics = state.areaLaw;
+  if (!metrics || !Array.isArray(metrics.regions) || metrics.regions.length === 0) {
+    return;
+  }
+  const period = Math.max(1, Math.floor(state.areaFeedbackPeriod ?? AREA_FEEDBACK_PERIOD));
+  if ((state.tickCount ?? 0) % period !== 0) {
+    return;
+  }
+
+  const threshold = Number.isFinite(state.areaFeedbackThreshold)
+    ? state.areaFeedbackThreshold
+    : AREA_RATIO_THRESHOLD;
+  const hysteresis = Number.isFinite(state.areaFeedbackHysteresis)
+    ? state.areaFeedbackHysteresis
+    : AREA_RATIO_HYSTERESIS;
+  const step = Number.isFinite(state.areaFeedbackStep) ? state.areaFeedbackStep : AREA_GAIN_STEP;
+  const relax = Number.isFinite(state.areaFeedbackRelax)
+    ? state.areaFeedbackRelax
+    : AREA_RELAX_RATE;
+  const margin = Math.max(0, Math.floor(state.areaFeedbackMargin ?? AREA_BOUNDARY_MARGIN));
+  const minGain = Number.isFinite(state.areaFeedbackMinGain) ? state.areaFeedbackMinGain : AREA_GAIN_MIN;
+  const maxGain = Number.isFinite(state.areaFeedbackMaxGain) ? state.areaFeedbackMaxGain : AREA_GAIN_MAX;
+
+  const totals = { top: 0, bottom: 0, left: 0, right: 0 };
+  const counts = { top: 0, bottom: 0, left: 0, right: 0 };
+  const grid = state.grid;
+  const bottomLimit = grid - 1 - margin;
+  const rightLimit = grid - 1 - margin;
+
+  for (const region of metrics.regions) {
+    const perimeter = region.perimeter;
+    if (!Number.isFinite(perimeter) || perimeter <= 0) continue;
+    const ratio = region.entropy / perimeter;
+    if (!Number.isFinite(ratio)) continue;
+
+    const touchesTop = region.y <= margin;
+    const touchesBottom = region.y + region.height - 1 >= bottomLimit;
+    const touchesLeft = region.x <= margin;
+    const touchesRight = region.x + region.width - 1 >= rightLimit;
+
+    if (touchesTop) {
+      totals.top += ratio;
+      counts.top++;
+    }
+    if (touchesBottom) {
+      totals.bottom += ratio;
+      counts.bottom++;
+    }
+    if (touchesLeft) {
+      totals.left += ratio;
+      counts.left++;
+    }
+    if (touchesRight) {
+      totals.right += ratio;
+      counts.right++;
+    }
+  }
+
+  const weights = ensureBoundaryWeights(state);
+  const relaxTowards = (current) => current + (1 - current) * relax;
+  const clampGain = (value) => Math.max(minGain, Math.min(maxGain, value));
+
+  const sides = ["top", "bottom", "left", "right"];
+  state.boundaryFeedback = state.boundaryFeedback || {};
+  state.boundaryFeedback.lastRatios = state.boundaryFeedback.lastRatios || {};
+  state.boundaryFeedback.lastTick = state.tickCount;
+
+  for (const side of sides) {
+    const count = counts[side];
+    if (count > 0) {
+      const avg = totals[side] / count;
+      state.boundaryFeedback.lastRatios[side] = avg;
+      const diff = threshold - avg;
+      if (diff > hysteresis) {
+        weights[side] = clampGain(weights[side] + step);
+      } else if (diff < -hysteresis) {
+        weights[side] = clampGain(weights[side] - step);
+      } else {
+        weights[side] = clampGain(relaxTowards(weights[side]));
+      }
+    } else {
+      state.boundaryFeedback.lastRatios[side] = null;
+      weights[side] = clampGain(relaxTowards(weights[side]));
+    }
+  }
+}
+
+const DEFAULT_RECON_STATE = () => ({
+  samples: [],
+  lastSample: null,
+  model: null,
+  pendingFreeze: false,
+  pendingTrain: null,
+  coverage: 1,
+  mode: "contiguous",
+  offset: 0,
+  metrics: null,
+  maskedBoundary: null,
+  predicted: null,
+  mask: null,
+  status: "idle",
+  recalcPending: false,
+});
+
+function ensureReconstructionState(state){
+  if (!state.reconstruction) {
+    state.reconstruction = DEFAULT_RECON_STATE();
+  }
+  return state.reconstruction;
+}
 
 export function applyLattice(phi, grid, preset, customKernel, mix=0){
   // blend smooth/rigid kernels according to mix (𝓡ₐ feedback)
@@ -88,24 +447,18 @@ export function applyLattice(phi, grid, preset, customKernel, mix=0){
 }
 
 // ℜ: measure affinity between φ and 𝓛 with temporal context 𝓣
-function cosineSim01(a,b){
-  let dot=0,na=0,nb=0;
-  const n=Math.min(a.length,b.length);
-  for(let i=0;i<n;i++){
-    const x=a[i], y=b[i];
-    dot+=x*y; na+=x*x; nb+=y*y;
-  }
-  if(na===0||nb===0) return 0;
-  const raw=dot/Math.sqrt(na*nb); // -1..1
-  return (raw+1)/2; // 0..1
-}
-
-export function resonance(phi, shaped, context=0){
-  const sim = cosineSim01(phi, shaped);
-  // map context (timeField) to 0..1 window via sinusoidal cycle
-  const t = 0.5 + 0.5*Math.sin(context*0.05);
-  const res = sim * t;
-  return {sim, t, res};
+export function resonance(phi, shaped, context=0, weights=null, tickCount=0){
+  const sim = weightedCosine01(phi, shaped, weights);
+  const windowSize = Math.max(2, HAMMING_WINDOW);
+  const phase = (tickCount % windowSize) / (windowSize - 1);
+  const hamming = HAMMING_ALPHA - HAMMING_BETA * Math.cos(2 * Math.PI * phase);
+  const hammingNorm = HAMMING_ALPHA > 0 ? hamming / HAMMING_ALPHA : hamming;
+  const temporalMod = Math.min(
+    1.5,
+    Math.max(0.5, hammingNorm * (1 + 0.1 * Math.tanh(context)))
+  );
+  const res = Math.max(0, Math.min(1, sim * temporalMod));
+  return { sim, t: temporalMod, res };
 }
 
 export function tick(state){
@@ -114,6 +467,8 @@ export function tick(state){
   if(ms.dimOmega < ms.dimPhi + 1){
     console.warn(`Axioma XII violado: dimΩ (${ms.dimOmega}) < dimΦ + 1 (${ms.dimPhi + 1})`);
   }
+  state.tickCount = (state.tickCount ?? 0) + 1;
+  const recon = ensureReconstructionState(state);
   // remember original preset so feedback can modify and restore
   state.basePreset = state.basePreset ?? preset;
   for(let i=0;i<state.phi.length;i++){
@@ -123,10 +478,112 @@ export function tick(state){
   }
   // 𝓡ₐ: decay lattice mix and apply to kernel selection
   state.kernelMix = (state.kernelMix ?? 0) * 0.97;
-  state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
+
+  if (state.holographicMode) {
+    const lattice = propagateBoundaryLattice(state);
+    const holoKernel = blendKernel(state.boundaryKernelMix ?? 0);
+    state.shaped = applyKernel(lattice, grid, holoKernel);
+    if (recon.pendingFreeze) {
+      if (lattice && lattice.length === grid * grid) {
+        const sample = captureSample(lattice, grid);
+        recon.samples.push(sample);
+        if (recon.samples.length > 128) {
+          recon.samples.shift();
+        }
+        recon.lastSample = sample;
+        recon.status = `Muestra holográfica capturada (N=${recon.samples.length})`;
+        recon.recalcPending = true;
+      } else {
+        recon.status = "No se pudo capturar el bulk holográfico actual";
+      }
+      recon.pendingFreeze = false;
+    }
+  } else {
+    state.shaped = applyLattice(state.phi, grid, preset, customKernel, state.kernelMix);
+    if (recon.pendingFreeze) {
+      recon.status = "Activa el modo holográfico para congelar el bulk";
+      recon.pendingFreeze = false;
+    }
+  }
   if(mu>0){
     for(let i=0;i<state.shaped.length;i++){
       state.shaped[i] *= (1 - mu);
+    }
+  }
+
+  if (state.shaped && state.shaped.length === grid * grid) {
+    state.areaLaw = computeAreaLaw(state.shaped, grid);
+  } else {
+    state.areaLaw = state.areaLaw ?? null;
+  }
+  applyAreaLawFeedback(state);
+
+  if (recon.pendingTrain) {
+    const boundarySize = grid * 4 - 4;
+    if (boundarySize <= 0) {
+      recon.status = "La grilla es demasiado pequeña para entrenar un decodificador";
+      recon.model = null;
+      recon.metrics = null;
+      recon.maskedBoundary = null;
+      recon.predicted = null;
+      recon.mask = null;
+      recon.pendingTrain = null;
+    } else {
+      const candidates = recon.samples.filter(sample => sample.boundary.length === boundarySize);
+      if (candidates.length === 0) {
+        recon.status = "No hay muestras compatibles con la grilla actual";
+        recon.model = null;
+        recon.metrics = null;
+        recon.maskedBoundary = null;
+        recon.predicted = null;
+        recon.mask = null;
+      } else {
+        try {
+          recon.model = trainDecoder(candidates, recon.pendingTrain);
+          recon.status = `Decodificador ${recon.model.type} entrenado (${candidates.length} muestras)`;
+          recon.recalcPending = true;
+        } catch (err) {
+          recon.status = `Error al entrenar: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      }
+      recon.pendingTrain = null;
+    }
+  }
+
+  if (recon.model) {
+    const targetSample = (() => {
+      const expected = recon.model.inputSize;
+      for (let i = recon.samples.length - 1; i >= 0; i--) {
+        const sample = recon.samples[i];
+        if (sample.boundary.length === expected) {
+          return sample;
+        }
+      }
+      return null;
+    })();
+    if (targetSample) {
+      recon.lastSample = targetSample;
+      if (recon.recalcPending || !recon.metrics) {
+        try {
+          const result = evaluateReconstruction(targetSample, recon.model, {
+            coverage: recon.coverage,
+            mode: recon.mode,
+            offset: recon.offset,
+          });
+          recon.metrics = result.metrics;
+          recon.maskedBoundary = result.maskedBoundary;
+          recon.predicted = result.predicted;
+          recon.mask = result.mask;
+          recon.recalcPending = false;
+        } catch (err) {
+          recon.status = `Error al evaluar: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      }
+    } else {
+      recon.metrics = null;
+      recon.maskedBoundary = null;
+      recon.predicted = null;
+      recon.mask = null;
     }
   }
   // Axioma XI: R como cociente Ω/(Φ∘𝓛)
@@ -142,15 +599,22 @@ export function tick(state){
       diffR += Math.abs(state.shaped[i]-state.prevShaped[i]);
     }
     diffR /= state.shaped.length;
-    const diffL = Math.abs((state.kernelMix ?? 0) - (state.prevKernelMix ?? state.kernelMix));
+    let diffL;
+    if (state.holographicMode) {
+      diffL = Math.abs((state.boundaryKernelMix ?? 0) - (state.prevBoundaryKernelMix ?? state.boundaryKernelMix ?? 0));
+      state.prevBoundaryKernelMix = state.boundaryKernelMix ?? 0;
+    } else {
+      diffL = Math.abs((state.kernelMix ?? 0) - (state.prevKernelMix ?? state.kernelMix));
+      state.prevKernelMix = state.kernelMix;
+    }
     const epsilonL = 1e-6;
     state.timeField = diffR / Math.max(diffL, epsilonL);
   } else {
     state.timeField = 0;
   }
   state.prevShaped = Float32Array.from(state.shaped);
-  state.prevKernelMix = state.kernelMix;
-  const stats = resonance(state.phi, state.shaped, state.timeField);
+  const depthWeights = ensureDepthWeights(state);
+  const stats = resonance(state.phi, state.shaped, state.timeField, depthWeights, state.tickCount);
   state.lastRes = stats.res;
   const effectiveEps = epsilon * (1 + state.timeField);
   if(stats.res >= effectiveEps){
@@ -240,4 +704,45 @@ export function drawSeries(canvas, series, color="rgba(57,192,186,1)"){
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.stroke();
+}
+
+export function requestHolographicFreeze(state){
+  const recon = ensureReconstructionState(state);
+  recon.pendingFreeze = true;
+  return recon;
+}
+
+export function clearReconstruction(state){
+  const recon = ensureReconstructionState(state);
+  recon.samples = [];
+  recon.lastSample = null;
+  recon.model = null;
+  recon.metrics = null;
+  recon.maskedBoundary = null;
+  recon.predicted = null;
+  recon.mask = null;
+  recon.status = "Reconstrucción reiniciada";
+  recon.recalcPending = false;
+  return recon;
+}
+
+export function trainReconstructionModel(state, options={}){
+  const recon = ensureReconstructionState(state);
+  recon.pendingTrain = { ...options };
+  return recon;
+}
+
+export function setReconstructionCoverage(state, coverage, mode, offset){
+  const recon = ensureReconstructionState(state);
+  recon.coverage = Math.max(0, Math.min(1, coverage ?? recon.coverage));
+  if (mode) recon.mode = mode;
+  if (typeof offset === "number") {
+    recon.offset = Math.max(0, Math.min(1, offset));
+  }
+  recon.recalcPending = true;
+  return recon.coverage;
+}
+
+export function getReconstructionState(state){
+  return ensureReconstructionState(state);
 }
