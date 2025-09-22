@@ -6,7 +6,8 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DEFAULT_EXPERIMENTS_DOC_URL = 'https://zenodo.org/records/17153982';
+const DEFAULT_EXPERIMENTS_DOC_URL = 'https://github.com/solis-labs/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md';
+const DEFAULT_AXIOMS_DOC_URL = 'https://zenodo.org/records/17153982';
 
 app.use(compression());
 app.use(express.json());
@@ -34,14 +35,15 @@ if (fs.existsSync(indexFilePath)) {
 
 const HTTP_URL_PATTERN = /^https?:\/\//i;
 
-function resolveRuntimeExperimentsDocUrl() {
-  const envValue =
-    process.env.EXPERIMENTS_DOC_URL ?? process.env.VITE_EXPERIMENTS_DOC_URL ?? '';
-  const trimmed = envValue.trim();
-  if (!trimmed || !HTTP_URL_PATTERN.test(trimmed)) {
-    return '';
+function pickFirstValidUrl(values) {
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (!HTTP_URL_PATTERN.test(trimmed)) continue;
+    return trimmed;
   }
-  return trimmed;
+  return '';
 }
 
 function serializeForInlineScript(obj) {
@@ -61,10 +63,20 @@ app.get('*', (req, res) => {
     cachedIndexHtml = fs.readFileSync(indexFilePath, 'utf8');
   }
 
-  const runtimeUrl = resolveRuntimeExperimentsDocUrl();
-  const effectiveUrl = runtimeUrl || DEFAULT_EXPERIMENTS_DOC_URL;
+  const runtimeExperimentsUrl = pickFirstValidUrl([
+    process.env.EXPERIMENTS_DOC_URL,
+    process.env.VITE_EXPERIMENTS_DOC_URL,
+  ]);
+  const runtimeAxiomsUrl = pickFirstValidUrl([
+    process.env.AXIOMS_DOC_URL,
+    process.env.VITE_AXIOMS_DOC_URL,
+    process.env.EXPERIMENTS_DOC_URL,
+    process.env.VITE_EXPERIMENTS_DOC_URL,
+  ]);
+
   const runtimeScript = `<script>window.__BB_RUNTIME_CONFIG__ = Object.assign({}, window.__BB_RUNTIME_CONFIG__, ${serializeForInlineScript({
-    experimentsDocUrl: effectiveUrl,
+    experimentsDocUrl: runtimeExperimentsUrl || DEFAULT_EXPERIMENTS_DOC_URL,
+    axiomsDocUrl: runtimeAxiomsUrl || DEFAULT_AXIOMS_DOC_URL,
   })});</script>`;
 
   let htmlToSend = cachedIndexHtml;

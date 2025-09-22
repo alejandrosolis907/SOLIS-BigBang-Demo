@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  PHYSICS_REGISTRY,
   getRegistryEntry,
   type ConstraintDefinition,
   type PhysicsRegistryEntry,
@@ -13,6 +12,7 @@ import {
 } from "../lib/physics/adapters";
 import { getPresetsForEntry, type PhysicsPreset } from "../lib/physics/presets";
 import { updateConstraintSatisfaction, updateHintsApplied } from "../metrics";
+import { getExperimentsDocUrl } from "../config";
 
 type ParamsPanelProps = {
   onApplySuggestions: (result: EngineAdapterResult) => void;
@@ -64,6 +64,15 @@ const sanitizeInputsFromResult = (entry: PhysicsRegistryEntry, result: Validatio
 
 const PARAMETER_WARNING_REGEX = /Parameter "([^"]+)"/i;
 
+const PANEL_ENTRY_IDS: readonly string[] = [
+  "vacuum",
+  "tunneling",
+  "nuclear",
+  "neutrino",
+  "star-formation",
+  "reactionless-propulsion",
+];
+
 const deriveConstraintCounts = (
   entry: PhysicsRegistryEntry,
   warnings: readonly string[],
@@ -107,17 +116,27 @@ const recordConstraintMetrics = (entryId: string, warnings: readonly string[]): 
 const HINT_KEYS: readonly (keyof EngineSuggestions)[] = [
   "noise",
   "damping",
-  "kernel",
   "threshold",
+  "kernelPreset",
   "gain",
   "resolution",
   "modulation",
 ];
 
+const HINT_LABELS: Record<keyof EngineSuggestions, string> = {
+  noise: "Ruido",
+  damping: "Amortiguación",
+  threshold: "Umbral",
+  kernelPreset: "Núcleo",
+  gain: "Ganancia",
+  resolution: "Resolución",
+  modulation: "Modulación",
+};
+
 const formatHintValue = (value: number | string): string => {
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
-      return "NaN";
+      return "No numérico";
     }
     return Number(value.toPrecision(6)).toString();
   }
@@ -131,7 +150,8 @@ const buildHintStrings = (suggestions: EngineSuggestions): string[] => {
     if (value === null || value === undefined) {
       return;
     }
-    result.push(`${key}=${formatHintValue(value)}`);
+    const label = HINT_LABELS[key] ?? key;
+    result.push(`${label}=${formatHintValue(value)}`);
   });
   return result;
 };
@@ -145,7 +165,11 @@ const recordHintMetrics = (result: EngineAdapterResult): void => {
 };
 
 export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPanelProps) {
-  const registryEntries = useMemo(() => Object.values(PHYSICS_REGISTRY), []);
+  const registryEntries = useMemo<PhysicsRegistryEntry[]>(() => {
+    return PANEL_ENTRY_IDS.map((entryId) => getRegistryEntry(entryId)).filter(
+      (entry): entry is PhysicsRegistryEntry => entry != null,
+    );
+  }, []);
   const [selectedEntryId, setSelectedEntryId] = useState(() => registryEntries[0]?.id ?? "");
   const selectedEntry = useMemo(() => {
     if (!selectedEntryId) {
@@ -155,6 +179,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
   }, [registryEntries, selectedEntryId]);
 
   const selectedEntryKey = selectedEntry?.id ?? "";
+  const experimentsDocUrl = useMemo(() => getExperimentsDocUrl(), []);
   const availablePresets = useMemo<readonly PhysicsPreset[]>(() => {
     if (!selectedEntryKey) {
       return [];
@@ -266,7 +291,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
         <dd className="text-slate-200">{formatConstraintNumber(constraints.max)}</dd>
       </div>
       <div>
-        <dt className="uppercase tracking-wide text-slate-500">Step</dt>
+        <dt className="uppercase tracking-wide text-slate-500">Paso</dt>
         <dd className="text-slate-200">{formatConstraintNumber(constraints.step)}</dd>
       </div>
       <div>
@@ -283,6 +308,15 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
         <p className="text-sm text-slate-400">
           Selecciona un suceso Φ y ajusta sus parámetros antes de validar contra las limitantes 𝓛.
         </p>
+        <a
+          href={experimentsDocUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 text-xs text-emerald-300 hover:text-emerald-200"
+        >
+          Ver README-Experimentos
+          <span aria-hidden="true">↗</span>
+        </a>
         <div>
           <label htmlFor="phi-entry" className="text-sm font-medium text-slate-200">
             Suceso Φ
@@ -303,7 +337,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
         </div>
         <div>
           <label htmlFor="phi-preset" className="text-sm font-medium text-slate-200">
-            Preset
+            Preajuste
           </label>
           <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center">
             <select
@@ -314,7 +348,7 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
               disabled={availablePresets.length === 0}
             >
               {availablePresets.length === 0 ? (
-                <option value="">Sin presets disponibles</option>
+                <option value="">Sin preajustes disponibles</option>
               ) : (
                 availablePresets.map((preset) => (
                   <option key={preset.id} value={preset.id}>
@@ -329,13 +363,13 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
               onClick={handleLoadPreset}
               disabled={!selectedPreset}
             >
-              Cargar preset
+              Cargar preajuste
             </button>
           </div>
           <p className="text-xs text-slate-400 mt-2">
             {selectedPreset
               ? selectedPreset.description
-              : "Selecciona un preset para precargar parámetros sugeridos."}
+              : "Selecciona un preajuste para precargar parámetros sugeridos."}
           </p>
         </div>
       </header>
@@ -437,15 +471,19 @@ export function ParamsPanel({ onApplySuggestions, lastAppliedResult }: ParamsPan
             </p>
           </header>
           <div className="grid gap-2 sm:grid-cols-2">
-            {Object.entries(lastAppliedResult.suggestions).map(([key, value]) => (
-              <div
-                key={key}
-                className="bg-slate-900/50 border border-slate-800/50 rounded-xl px-3 py-2"
-              >
-                <div className="text-xs uppercase tracking-wide text-slate-500">{key}</div>
-                <div className="text-base text-slate-100">{formatSuggestionValue(value)}</div>
-              </div>
-            ))}
+            {Object.entries(lastAppliedResult.suggestions).map(([key, value]) => {
+              const typedKey = key as keyof EngineSuggestions;
+              const label = HINT_LABELS[typedKey] ?? key;
+              return (
+                <div
+                  key={key}
+                  className="bg-slate-900/50 border border-slate-800/50 rounded-xl px-3 py-2"
+                >
+                  <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+                  <div className="text-base text-slate-100">{formatSuggestionValue(value)}</div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

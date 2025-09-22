@@ -15,6 +15,11 @@ const MAP_ROWS: Array<{ phi: string; lambda: string }> = [
   { phi: "Actividad volcánica, tectónica y sísmica", lambda: "Física de materiales, gravedad, geodinámica" },
   { phi: "Fenómenos atmosféricos (huracanes, auroras, arcoíris)", lambda: "Termodinámica, electromagnetismo, dinámica de fluidos" },
   { phi: "Mutación y evolución biológica", lambda: "ADN, tasas de mutación, leyes de la selección natural" },
+  {
+    phi: "Mecanismos del comportamiento humano",
+    lambda:
+      "Psicología social, teoría de juegos, topología de redes, sesgos cognitivos, límites atencionales, neurobiología del apego (oxitocina/dopamina), normas culturales, privacidad/consentimiento, sesgos, juegos de validación, sistemas de intercambio de valor, economía del comportamiento, límites éticos/legales, fatiga atencional, saturación de estímulos",
+  },
   { phi: "Emergencia de conciencia", lambda: "Neurobiología, coherencia cuántica (hipótesis en debate)" },
   { phi: "Muerte y regeneración parcial", lambda: "Límite de reparación celular, entropía biológica" },
   { phi: "Formación de estrellas y planetas", lambda: "Colapso gravitatorio, límite de Jeans" },
@@ -31,6 +36,31 @@ const MAP_ROWS: Array<{ phi: string; lambda: string }> = [
   { phi: "Computación e inteligencia artificial", lambda: "Teoría de la información, complejidad computacional" },
   { phi: "Guerra y cooperación", lambda: "Psicología, sociología, recursos materiales" },
   { phi: "Colonización espacial", lambda: "Ley de Tsiolkovsky, restricciones energéticas" },
+  {
+    phi: "Propulsión sin eyección de masa (reactionless)",
+    lambda: "Conservación de momento/energía, relatividad especial (→ **no permitido** en sistemas cerrados)",
+  },
+  {
+    phi: "Propulsión con intercambio externo (vela solar/magnética, beam-riding)",
+    lambda: "Presupuesto de momento/energía del campo externo, límites de potencia/materiales",
+  },
+  {
+    phi: "Predicción de resultados deportivos",
+    lambda:
+      "Estocasticidad del juego, varianza previa, límites de medición (lesiones, moral), overfitting, efecto del clima en el rendimiento deportivo (termodinámica, dinámica de fluidos, límites fisiológicos, intercambio de calor)",
+  },
+  {
+    phi: "Mejora de predicción climática via aprendizaje de errores",
+    lambda: "Caos determinista, límites de observación/resolución, complejidad computacional",
+  },
+  {
+    phi: "IA meta-aprendizaje para reducir efecto mariposa",
+    lambda: "Teoría de control/estabilidad, regularización, límites de identificabilidad",
+  },
+  {
+    phi: "Integración multidominio de Φ→𝓛 (misma fórmula en ámbitos distintos)",
+    lambda: "Compatibilidad de unidades/escala, causalidad, validación cruzada, privacidad/ética",
+  },
   { phi: "Ingeniería genética y biotecnología", lambda: "Biología molecular, bioética, límites mutacionales" },
   { phi: "Ciborgs y transhumanismo", lambda: "Ingeniería biomédica, integración hombre-máquina" },
   { phi: "Posible contacto extraterrestre", lambda: "Límites de detección (SETI, paradoja de Fermi)" },
@@ -46,23 +76,27 @@ export function ExperimentsPanel({ onOpenDoc }: ExperimentsPanelProps) {
       </header>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-separate border-spacing-y-1 min-w-[480px]">
+        <table className="w-full text-left text-sm border-collapse border border-slate-700 min-w-[480px]">
           <thead>
             <tr className="text-slate-400">
-              <th className="px-3 py-2 w-1/2">Φ — Sucesos y hechos posibles</th>
-              <th className="px-3 py-2 w-1/2">𝓛 — Estructuras limitantes</th>
+              <th className="px-3 py-2 w-1/2 border border-slate-700">Φ — Sucesos y hechos posibles</th>
+              <th className="px-3 py-2 w-1/2 border border-slate-700">𝓛 — Estructuras limitantes</th>
             </tr>
           </thead>
           <tbody>
             {MAP_ROWS.map((row) => (
               <tr key={`${row.phi}-${row.lambda}`} className="bg-slate-900/60 align-top">
-                <td className="px-3 py-2 text-slate-200">{row.phi}</td>
-                <td className="px-3 py-2 text-slate-200">{row.lambda}</td>
+                <td className="px-3 py-2 text-slate-200 border border-slate-800">{row.phi}</td>
+                <td className="px-3 py-2 text-slate-200 border border-slate-800">{row.lambda}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-slate-400">
+        Nota: Propulsión sin eyección de masa no está permitida por conservación del momento (caso de prueba negativo).
+      </p>
 
       <section className="space-y-2 text-sm text-slate-200">
         <h3 className="text-sm font-semibold text-slate-300">Interpretación (Φ, 𝓛, R)</h3>
@@ -82,7 +116,7 @@ export function ExperimentsPanel({ onOpenDoc }: ExperimentsPanelProps) {
 
       <div className="flex justify-end">
         <button
-          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm"
+          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm"
           onClick={onOpenDoc}
           type="button"
         >
