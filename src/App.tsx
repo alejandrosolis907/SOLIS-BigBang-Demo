@@ -150,7 +150,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, mu, onToggl
               (center - 1) * 0.1 + 0.05 * speed * (Math.random() - 0.5)
           )
         );
-        const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
+        const phase = p.phase - 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
         return { ...p, energy, symmetry, curvature, phase };
       });
       const avg = nextPoss.reduce((a, p) => a + p.energy, 0) / nextPoss.length;
