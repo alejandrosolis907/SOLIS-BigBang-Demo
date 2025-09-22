@@ -56,19 +56,43 @@ export function countClusters1D(values: number[]): number {
   if (values.length < 2) return values.length;
   let centers = [0.2, 0.5, 0.8];
   for (let iter = 0; iter < 5; iter++) {
-    const groups: number[][] = [[], [], []];
+    const groups: number[][] = centers.map(() => []);
     for (const v of values) {
       let best = 0, bestd = Infinity;
       for (let i = 0; i < centers.length; i++) {
         const d = Math.abs(v - centers[i]);
-        if (d < bestd) { bestd = d; best = i; }
+        if (d < bestd) {
+          bestd = d;
+          best = i;
+        }
       }
       groups[best].push(v);
     }
-    centers = groups.map(g => g.length ? g.reduce((a,b)=>a+b,0)/g.length : Math.random());
+    centers = groups
+      .filter((g) => g.length)
+      .map((g) => g.reduce((a, b) => a + b, 0) / g.length);
   }
-  return centers.length;
+  // asignación final para contar grupos no vacíos
+  const finalGroups: number[][] = centers.map(() => []);
+  for (const v of values) {
+    let best = 0, bestd = Infinity;
+    for (let i = 0; i < centers.length; i++) {
+      const d = Math.abs(v - centers[i]);
+      if (d < bestd) {
+        bestd = d;
+        best = i;
+      }
+    }
+    finalGroups[best].push(v);
+  }
+  return finalGroups.filter((g) => g.length > 0).length;
 }
+
+/*
+Ejemplo rápido de uso:
+countClusters1D([0.1, 0.15, 0.8]) → 2
+countClusters1D([0.1, 0.15, 0.2]) → 1
+*/
 
 export function computeMetrics(resonances: number[], theta: number): Metrics {
   const entropy = approxEntropy(resonances);

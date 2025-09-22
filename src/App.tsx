@@ -1,11 +1,31 @@
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { exportGridPng } from "./utils/capture";
 import { LinePlot } from "./components/LinePlot";
 import { PhiCanvas, type Snapshot as PhiSnapshot } from "./components/PhiCanvas";
 import { GlobalParamsPanel } from "./components/GlobalParamsPanel";
 import { KernelEditor } from "./components/KernelEditor";
+import ReportPanel from "./ui/report";
 import { ResonanceMeter } from "./components/ResonanceMeter";
+import { Header } from "./ui/Header";
+import { ExperimentsPanel } from "./ui/ExperimentsPanel";
+import { MetricsPanel } from "./ui/MetricsPanel";
+import { ParamsPanel } from "./ui/ParamsPanel";
+import type { EngineAdapterResult } from "./lib/physics/adapters";
+import type { ExperimentHints } from "./lib/bridge";
+import { getAxiomsDocUrl, getExperimentsDocUrl } from "./config";
+
+declare global {
+  interface Window {
+    __BB_EXPERIMENT_HINTS__?: ExperimentHints | null;
+    __BB_RUNTIME_CONFIG__?: {
+      experimentsDocUrl?: string | null;
+    };
+    __BB_EXPERIMENT_CONTEXT__?: {
+      entryId?: string | null;
+    } | null;
+  }
+}
 
 // ==== Core types reproduced to remain compatible with BigBang2 motor ====
 type Possibility = { id: string; energy: number; symmetry: number; curvature: number; phase: number; };
@@ -130,7 +150,7 @@ function UniverseCell({ seed, running, speed, grid, balance, kernel, mu, onToggl
               (center - 1) * 0.1 + 0.05 * speed * (Math.random() - 0.5)
           )
         );
-        const phase = p.phase + 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
+        const phase = p.phase - 0.02 * speed + 0.01 * speed * Math.sin(tt * 0.01 + i);
         return { ...p, energy, symmetry, curvature, phase };
       });
       const avg = nextPoss.reduce((a, p) => a + p.energy, 0) / nextPoss.length;
@@ -219,9 +239,55 @@ export default function App(){
   const [mu, setMu] = useState(0);
   const [kernel, setKernel] = useState<number[]>([0,-1,0,-1,5,-1,0,-1,0]);
 
+  const kernelIntensity = useMemo(() => {
+    if (!kernel.length) return 0;
+    const magnitude = kernel.reduce((sum, value) => sum + Math.abs(value), 0);
+    return magnitude / kernel.length;
+  }, [kernel]);
+  const muStructural = Math.min(0.5, kernelIntensity * 0.12);
+  const muEffective = Math.min(0.9, mu + muStructural);
+
   const [seeds, setSeeds] = useState<number[]>(() => Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
   const [running, setRunning] = useState<boolean[]>(() => Array.from({length: COUNT}, ()=> true));
   const [resetSignals, setResetSignals] = useState<number[]>(() => Array.from({length: COUNT}, ()=> 0));
+  const [showExperimentsPanel, setShowExperimentsPanel] = useState(false);
+  const [showParamsPanel, setShowParamsPanel] = useState(false);
+  const [appliedEngineSuggestions, setAppliedEngineSuggestions] =
+    useState<EngineAdapterResult | null>(null);
+  const [showMetricsPanel, setShowMetricsPanel] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!appliedEngineSuggestions) {
+      window.__BB_EXPERIMENT_HINTS__ = null;
+      window.__BB_EXPERIMENT_CONTEXT__ = null;
+      return;
+    }
+    const { suggestions } = appliedEngineSuggestions;
+    const normalizeNumeric = (value: number | null): number | null =>
+      typeof value === "number" && Number.isFinite(value) ? value : null;
+    const hints: ExperimentHints = {
+      noise: normalizeNumeric(suggestions.noise),
+      damping: normalizeNumeric(suggestions.damping),
+      threshold: normalizeNumeric(suggestions.threshold),
+      kernelPreset: suggestions.kernelPreset ?? null,
+    };
+    window.__BB_EXPERIMENT_HINTS__ = hints;
+    window.__BB_EXPERIMENT_CONTEXT__ = {
+      entryId: appliedEngineSuggestions.entryId,
+    };
+  }, [appliedEngineSuggestions]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined") {
+        window.__BB_EXPERIMENT_HINTS__ = null;
+        window.__BB_EXPERIMENT_CONTEXT__ = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setSeeds(Array.from({length: COUNT}, (_,i)=> baseSeed + i*7));
@@ -255,19 +321,47 @@ export default function App(){
     URL.revokeObjectURL(url);
   };
 
+  const openExperimentsDoc = React.useCallback(() => {
+    const experimentsUrl = getExperimentsDocUrl();
+    window.open(experimentsUrl, "_blank", "noopener,noreferrer");
+  }, []);
+
+  const openAxiomsDoc = React.useCallback(() => {
+    const axiomsUrl = getAxiomsDocUrl();
+    window.open(axiomsUrl, "_blank", "noopener,noreferrer");
+  }, []);
+
+  const experimentsToggleClassName = showExperimentsPanel
+    ? "px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white shadow"
+    : "px-3 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white shadow";
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 relative">
-      <header className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-center sm:text-left">BigBangSim — Φ ∘ 𝓛(x) → R</h1>
-        <div className="flex flex-wrap justify-center sm:justify-end gap-2">
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={startAll}>Iniciar todo</button>
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={pauseAll}>Pausar todo</button>
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={resetAllSoft}>Reset 𝓣/R</button>
-          <button className="px-3 py-1 rounded-xl bg-indigo-700 hover:bg-indigo-600" onClick={resetAllHard}>Big Bang ♻︎</button>
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={exportExcel}>Exportar CSV</button>
-          <button className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={()=>exportGridPng("grid")}>Exportar captura</button>
+      <Header
+        onStartAll={startAll}
+        onPauseAll={pauseAll}
+        onResetSoft={resetAllSoft}
+        onResetHard={resetAllHard}
+        onExportCsv={exportExcel}
+        onExportCapture={() => exportGridPng("grid")}
+        onOpenExperimentsDoc={openExperimentsDoc}
+        onToggleMetrics={() => setShowMetricsPanel((prev) => !prev)}
+        onToggleParams={() => setShowParamsPanel((prev) => !prev)}
+        metricsOpen={showMetricsPanel}
+        paramsOpen={showParamsPanel}
+      />
+
+      {(showMetricsPanel || showParamsPanel) && (
+        <div className="space-y-4 mb-4">
+          {showParamsPanel && (
+            <ParamsPanel
+              onApplySuggestions={(result) => setAppliedEngineSuggestions(result)}
+              lastAppliedResult={appliedEngineSuggestions}
+            />
+          )}
+          {showMetricsPanel && <MetricsPanel seed={baseSeed} depth={gridSize} />}
         </div>
-      </header>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-4">
         <aside className="space-y-4 w-full lg:w-2/5">
@@ -282,8 +376,11 @@ export default function App(){
             setBalance={setBalance}
             mu={mu}
             setMu={setMu}
+            muStructural={muStructural}
+            muEffective={muEffective}
           />
           <KernelEditor kernel={kernel} setKernel={setKernel} />
+          <ReportPanel />
         </aside>
         <main className="w-full lg:w-3/5">
           <div id="grid">
@@ -297,7 +394,7 @@ export default function App(){
                   grid={gridSize}
                   balance={balance}
                   kernel={kernel}
-                  mu={mu}
+                  mu={muEffective}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
                   onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
                   onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
@@ -317,7 +414,7 @@ export default function App(){
                   grid={gridSize}
                   balance={balance}
                   kernel={kernel}
-                  mu={mu}
+                  mu={muEffective}
                   onToggle={()=> setRunning(prev => prev.map((v,idx)=> idx===i ? !v : v))}
                   onResetSoft={()=> setResetSignals(prev => prev.map((v,idx)=> idx===i ? v+1 : v))}
                   onResetHard={()=> setSeeds(prev => prev.map((v,idx)=> idx===i ? Math.floor(Math.random()*100000) : v))}
@@ -328,6 +425,22 @@ export default function App(){
                 />
               ))}
             </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                className={experimentsToggleClassName}
+                onClick={() => setShowExperimentsPanel((prev) => !prev)}
+                type="button"
+              >
+                {showExperimentsPanel
+                  ? "Cerrar mapa Φ ∘ 𝓛(x)"
+                  : "Mapa Φ ∘ 𝓛(x)"}
+              </button>
+            </div>
+            {showExperimentsPanel && (
+              <div className="mt-4">
+                <ExperimentsPanel onOpenDoc={openAxiomsDoc} />
+              </div>
+            )}
           </div>
         </main>
       </div>

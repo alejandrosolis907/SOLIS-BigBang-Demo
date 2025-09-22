@@ -6,6 +6,8 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_EXPERIMENTS_DOC_URL = 'https://github.com/solis-labs/SOLIS-BigBang-Demo/blob/main/docs/README-Experimentos.md';
+const DEFAULT_AXIOMS_DOC_URL = 'https://zenodo.org/records/17153982';
 
 app.use(compression());
 app.use(express.json());
@@ -23,16 +25,69 @@ app.get('/debug', (_req, res) => {
   res.json({ distPath, indexExists: exists, listing });
 });
 
-app.use(express.static(distPath, { maxAge: '1h', etag: true }));
+app.use(express.static(distPath, { maxAge: '1h', etag: true, index: false }));
+
+const indexFilePath = path.join(distPath, 'index.html');
+let cachedIndexHtml = null;
+if (fs.existsSync(indexFilePath)) {
+  cachedIndexHtml = fs.readFileSync(indexFilePath, 'utf8');
+}
+
+const HTTP_URL_PATTERN = /^https?:\/\//i;
+
+function pickFirstValidUrl(values) {
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (!HTTP_URL_PATTERN.test(trimmed)) continue;
+    return trimmed;
+  }
+  return '';
+}
+
+function serializeForInlineScript(obj) {
+  return JSON.stringify(obj).replace(/</g, '\\u003c');
+}
 
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).end();
-  const indexFile = path.join(distPath, 'index.html');
-  if (!fs.existsSync(indexFile)) {
-    console.error('[ERROR] index.html no encontrado en:', indexFile);
-    return res.status(500).send('Build no encontrado. ¿Corrió "npm run build"?');
+
+  if (!cachedIndexHtml) {
+    if (!fs.existsSync(indexFilePath)) {
+      console.error('[ERROR] index.html no encontrado en:', indexFilePath);
+      return res
+        .status(500)
+        .send('Build no encontrado. ¿Corrió "npm run build"?');
+    }
+    cachedIndexHtml = fs.readFileSync(indexFilePath, 'utf8');
   }
-  res.sendFile(indexFile);
+
+  const runtimeExperimentsUrl = pickFirstValidUrl([
+    process.env.EXPERIMENTS_DOC_URL,
+    process.env.VITE_EXPERIMENTS_DOC_URL,
+  ]);
+  const runtimeAxiomsUrl = pickFirstValidUrl([
+    process.env.AXIOMS_DOC_URL,
+    process.env.VITE_AXIOMS_DOC_URL,
+    process.env.EXPERIMENTS_DOC_URL,
+    process.env.VITE_EXPERIMENTS_DOC_URL,
+  ]);
+
+  const runtimeScript = `<script>window.__BB_RUNTIME_CONFIG__ = Object.assign({}, window.__BB_RUNTIME_CONFIG__, ${serializeForInlineScript({
+    experimentsDocUrl: runtimeExperimentsUrl || DEFAULT_EXPERIMENTS_DOC_URL,
+    axiomsDocUrl: runtimeAxiomsUrl || DEFAULT_AXIOMS_DOC_URL,
+  })});</script>`;
+
+  let htmlToSend = cachedIndexHtml;
+  if (cachedIndexHtml.includes('</body>')) {
+    htmlToSend = cachedIndexHtml.replace('</body>', `${runtimeScript}\n</body>`);
+  } else {
+    htmlToSend = `${cachedIndexHtml}\n${runtimeScript}`;
+  }
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(htmlToSend);
 });
 
 app.use((err, _req, res, _next) => {
